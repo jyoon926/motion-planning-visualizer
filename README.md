@@ -2,42 +2,53 @@
 
 ## Getting Started
 
-1. Clone the repository
+1. Install Node.js
 
-```
-git clone https://github.com/jyoon926/motion-planning-visualizer.git
-cd motion-planning-visualizer
-```
+   Make sure you have the latest LTS version of Node.js installed. You can download it from [https://nodejs.org/en/download](https://nodejs.org/en/download).
 
-2. Install dependencies
+   Run these commands to check that it is installed properly:
 
-```
-npm install
-```
+   ```
+   node -v
+   npm -v
+   ```
 
-3. Run the development server
+2. Clone the repository
 
-```
-npm run dev
-```
+   ```
+   git clone https://github.com/jyoon926/motion-planning-visualizer.git
+   cd motion-planning-visualizer
+   ```
 
-4. Open [http://localhost:5173](http://localhost:5173) to view in the browser.
+3. Install dependencies
+
+   ```
+   npm install
+   ```
+
+4. Run the development server
+
+   ```
+   npm run dev
+   ```
+
+5. Open [http://localhost:5173](http://localhost:5173) to view in the browser.
 
 ## Linting & Formatting
 
-Run ESLint to check for issues:
+1. Run ESLint to check for issues:
 
-```
-npm run lint
-```
+   ```
+   npm run lint
+   ```
 
-Automatically fix ESLint & Prettier issues:
+2. Automatically fix ESLint & Prettier issues:
 
-```
-npm run format
-```
+   ```
+   npm run format
+   ```
 
-A GitHub Actions workflow runs on push/pull requests to check ESLint rules automatically.
+> A GitHub Actions workflow runs on push/pull requests to check ESLint rules automatically.
 
 ## Project structure
 
