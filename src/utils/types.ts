@@ -12,18 +12,24 @@ export interface Rectangle {
 }
 
 export interface DraggablePoint {
-  id: 'start' | 'end'
+  id: PointType
   center: Point
 }
 
 export type CursorType = 'default' | 'crosshair' | 'pointer' | 'grab'
 
+export type PointType = 'start' | 'end'
+
 export type InteractionMode = 'drawing' | 'moving' | 'resizing' | 'rotating' | 'idle'
+
+export type Tool = 'edit' | 'delete'
+
+export type Algorithm = 'visibilityGraph' | 'voronoi'
 
 export interface InteractionState {
   mode: InteractionMode
   startPoint: Point | null
-  selectedPointId: 'start' | 'end' | null
+  selectedPointId: PointType | null
   selectedRectId: string | null
   dragHandle: string | null // 'body', 'top', 'right', 'bottom', 'left', 'nw', 'ne', 'sw', 'se'
 }

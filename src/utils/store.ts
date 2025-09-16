@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Rectangle, InteractionState, CursorType, DraggablePoint } from './types'
+import type { Rectangle, InteractionState, CursorType, DraggablePoint, PointType, Tool, Algorithm } from './types'
 
 const INITIAL_RECTANGLES: Rectangle[] = [
   {
@@ -33,20 +33,24 @@ interface CanvasState {
   endPoint: DraggablePoint
   hoveredRectId: string | null
   hoveredHandle: string | null
-  hoveredPointId: 'start' | 'end' | null
+  hoveredPointId: PointType | null
   interaction: InteractionState
   cursor: CursorType
+  tool: Tool
+  algorithm: Algorithm
 
   addRectangle: (rect: Rectangle) => void
   updateRectangle: (id: string, updates: Partial<Rectangle>) => void
   deleteRectangle: (id: string) => void
   setHoveredRect: (id: string | null) => void
   setHoveredHandle: (handle: string | null) => void
-  setHoveredPoint: (id: 'start' | 'end' | null) => void
-  movePoint: (id: 'start' | 'end', updates: Partial<DraggablePoint>) => void
+  setHoveredPoint: (id: PointType | null) => void
+  movePoint: (id: PointType, updates: Partial<DraggablePoint>) => void
   setInteraction: (interaction: Partial<InteractionState>) => void
   setCursor: (cursor: CursorType) => void
   clearSelection: () => void
+  setTool: (tool: Tool) => void
+  setAlgorithm: (algorithm: Algorithm) => void
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -64,6 +68,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
     dragHandle: null,
   },
   cursor: 'default',
+  tool: 'edit',
+  algorithm: 'visibilityGraph',
 
   addRectangle: (rect) =>
     set((state) => ({
@@ -130,4 +136,8 @@ export const useCanvasStore = create<CanvasState>((set) => ({
       hoveredHandle: null,
       cursor: 'default',
     })),
+
+  setTool: (tool) => set({ tool }),
+
+  setAlgorithm: (algorithm) => set({ algorithm }),
 }))

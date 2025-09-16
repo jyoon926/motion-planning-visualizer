@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CursorType, DraggablePoint, Point, Rectangle } from '../utils/types'
+import type { CursorType, DraggablePoint, Point, PointType, Rectangle } from '../utils/types'
 import { useCanvasStore } from '../utils/store'
 
 const HANDLE_SIZE = 8
 const ROTATE_HANDLE_OFFSET = 30
-const COLOR_BACKGROUND = '#ddd'
-const COLOR_RECTANGLE_FILL = '#bbb'
-const COLOR_RECTANGLE_STROKE = '#555'
+const COLOR_BACKGROUND = '#d0d0d0'
+const COLOR_RECTANGLE_FILL = '#f5f5f5'
+const COLOR_RECTANGLE_STROKE = '#444'
 const COLOR_RECTANGLE_STROKE_HOVERED = '#000'
-const COLOR_HANDLE_FILL = '#fff'
-const COLOR_HANDLE_STROKE = '#000'
+const COLOR_RECTANGLE_DELETE_HOVERED = '#dc2626' // Red color for delete mode
 const STROKE_WIDTH = 1.5
 const POINT_RADIUS = 12
 
@@ -23,8 +22,10 @@ function CanvasComponent() {
     hoveredPointId,
     interaction,
     cursor,
+    tool,
     addRectangle,
     updateRectangle,
+    deleteRectangle,
     setInteraction,
     movePoint,
     setCursor,
@@ -63,7 +64,7 @@ function CanvasComponent() {
 
   // Hit test for start/end points
   const getPointHitTest = useCallback(
-    (mousePos: Point): 'start' | 'end' | null => {
+    (mousePos: Point): PointType | null => {
       const radius = 10
       const dist = (p: { x: number; y: number }) => Math.hypot(mousePos.x - p.x, mousePos.y - p.y)
 
@@ -134,47 +135,73 @@ function CanvasComponent() {
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const mousePos = getMousePosition(e)
 
-      // Check if clicked on start/end point
-      const pointHit = getPointHitTest(mousePos)
-      if (pointHit) {
-        setInteraction({
-          mode: 'moving',
-          startPoint: mousePos,
-          selectedPointId: pointHit,
-          selectedRectId: null,
-        })
+      // Delete tool behavior
+      if (tool === 'delete') {
+        const hitTest = getRectHitTest(mousePos)
+        if (hitTest.rectId) {
+          deleteRectangle(hitTest.rectId)
+          setHoveredRect(null)
+          setHoveredHandle(null)
+        }
         return
       }
 
-      // Check if clicked on a rectangle or its handle
-      if (hoveredRectId && hoveredHandle) {
-        setInteraction({
-          mode: hoveredHandle === 'body' ? 'moving' : hoveredHandle === 'rotate' ? 'rotating' : 'resizing',
-          startPoint: mousePos,
-          selectedRectId: hoveredRectId,
-          dragHandle: hoveredHandle,
-        })
-        return
-      }
+      // Edit tool behavior (original functionality)
+      if (tool === 'edit') {
+        // Check if clicked on start/end point
+        const pointHit = getPointHitTest(mousePos)
+        if (pointHit) {
+          setInteraction({
+            mode: 'moving',
+            startPoint: mousePos,
+            selectedPointId: pointHit,
+            selectedRectId: null,
+          })
+          return
+        }
 
-      // Otherwise, start drawing a new rectangle
-      isDrawingRef.current = true
-      const newRect: Rectangle = {
-        id: generateId(),
-        center: { x: mousePos.x, y: mousePos.y },
-        width: 0,
-        height: 0,
-        rotation: 0,
+        // Check if clicked on a rectangle or its handle
+        if (hoveredRectId && hoveredHandle) {
+          setInteraction({
+            mode: hoveredHandle === 'body' ? 'moving' : hoveredHandle === 'rotate' ? 'rotating' : 'resizing',
+            startPoint: mousePos,
+            selectedRectId: hoveredRectId,
+            dragHandle: hoveredHandle,
+          })
+          return
+        }
+
+        // Otherwise, start drawing a new rectangle
+        isDrawingRef.current = true
+        const newRect: Rectangle = {
+          id: generateId(),
+          center: { x: mousePos.x, y: mousePos.y },
+          width: 0,
+          height: 0,
+          rotation: 0,
+        }
+        addRectangle(newRect)
+        setInteraction({
+          mode: 'drawing',
+          startPoint: mousePos,
+          selectedRectId: newRect.id,
+          dragHandle: null,
+        })
       }
-      addRectangle(newRect)
-      setInteraction({
-        mode: 'drawing',
-        startPoint: mousePos,
-        selectedRectId: newRect.id,
-        dragHandle: null,
-      })
     },
-    [hoveredRectId, hoveredHandle, addRectangle, setInteraction, getMousePosition, getPointHitTest]
+    [
+      tool,
+      hoveredRectId,
+      hoveredHandle,
+      addRectangle,
+      deleteRectangle,
+      setInteraction,
+      setHoveredRect,
+      setHoveredHandle,
+      getMousePosition,
+      getPointHitTest,
+      getRectHitTest,
+    ]
   )
 
   // Handle mouse move
@@ -184,23 +211,36 @@ function CanvasComponent() {
 
       // Update hover state when idle
       if (interaction.mode === 'idle') {
-        // Check if hovering over start/end point
-        const pointHit = getPointHitTest(mousePos)
-        if (pointHit) {
-          setHoveredRect(null)
-          setHoveredHandle(null)
-          setHoveredPoint(pointHit)
-          setCursor('grab')
+        // Delete tool behavior - only hover rectangles, simpler cursor
+        if (tool === 'delete') {
+          const hitTest = getRectHitTest(mousePos)
+          setHoveredRect(hitTest.rectId)
+          setHoveredHandle(null) // Don't show handles in delete mode
+          setHoveredPoint(null)
+          setCursor(hitTest.rectId ? 'pointer' : 'default')
           return
         }
 
-        // Check if hovering over a rectangle or its handle
-        const hitTest = getRectHitTest(mousePos)
-        setHoveredRect(hitTest.rectId)
-        setHoveredHandle(hitTest.handle)
-        setHoveredPoint(null)
-        setCursor(hitTest.handle ? getCursorForHandle(hitTest.handle) : 'crosshair')
-        return
+        // Edit tool behavior (original functionality)
+        if (tool === 'edit') {
+          // Check if hovering over start/end point
+          const pointHit = getPointHitTest(mousePos)
+          if (pointHit) {
+            setHoveredRect(null)
+            setHoveredHandle(null)
+            setHoveredPoint(pointHit)
+            setCursor('grab')
+            return
+          }
+
+          // Check if hovering over a rectangle or its handle
+          const hitTest = getRectHitTest(mousePos)
+          setHoveredRect(hitTest.rectId)
+          setHoveredHandle(hitTest.handle)
+          setHoveredPoint(null)
+          setCursor(hitTest.handle ? getCursorForHandle(hitTest.handle) : 'crosshair')
+          return
+        }
       }
 
       if (!interaction.startPoint || !(interaction.selectedRectId || interaction.selectedPointId)) return
@@ -305,6 +345,7 @@ function CanvasComponent() {
       }
     },
     [
+      tool,
       interaction,
       rectangles,
       updateRectangle,
@@ -358,7 +399,7 @@ function CanvasComponent() {
     // Draw start/end points
     drawPoint(ctx, startPoint)
     drawPoint(ctx, endPoint)
-  }, [startPoint, endPoint, rectangles, hoveredRectId, hoveredPointId])
+  }, [startPoint, endPoint, rectangles, hoveredRectId, hoveredPointId, tool])
 
   // Draw a single rectangle
   const drawRectangle = (ctx: CanvasRenderingContext2D, rect: Rectangle, isHovered: boolean) => {
@@ -376,13 +417,18 @@ function CanvasComponent() {
     ctx.fillStyle = COLOR_RECTANGLE_FILL
     ctx.fillRect(x, y, rect.width, rect.height)
 
-    // Stroke
-    ctx.strokeStyle = isHovered ? COLOR_RECTANGLE_STROKE_HOVERED : COLOR_RECTANGLE_STROKE
-    ctx.lineWidth = STROKE_WIDTH
+    // Stroke - use red color if hovered in delete mode
+    const isDeleteMode = tool === 'delete'
+    ctx.strokeStyle = isHovered
+      ? isDeleteMode
+        ? COLOR_RECTANGLE_DELETE_HOVERED
+        : COLOR_RECTANGLE_STROKE_HOVERED
+      : COLOR_RECTANGLE_STROKE
+    ctx.lineWidth = isHovered && isDeleteMode ? 2 : STROKE_WIDTH
     ctx.strokeRect(x, y, rect.width, rect.height)
 
-    // Draw handles if hovered
-    if (isHovered) {
+    // Draw handles only if hovered and in edit mode
+    if (isHovered && tool === 'edit') {
       const handles = [
         { id: 'nw', x: x, y: y },
         { id: 'ne', x: x + rect.width, y: y },
@@ -395,9 +441,9 @@ function CanvasComponent() {
       ]
 
       handles.forEach((handle) => {
-        ctx.fillStyle = COLOR_HANDLE_FILL
+        ctx.fillStyle = COLOR_RECTANGLE_FILL
         ctx.fillRect(handle.x - HANDLE_SIZE / 2, handle.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
-        ctx.strokeStyle = COLOR_HANDLE_STROKE
+        ctx.strokeStyle = COLOR_RECTANGLE_STROKE_HOVERED
         ctx.lineWidth = STROKE_WIDTH
         ctx.strokeRect(handle.x - HANDLE_SIZE / 2, handle.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
       })
@@ -407,9 +453,9 @@ function CanvasComponent() {
       const rotateY = y - ROTATE_HANDLE_OFFSET
       ctx.beginPath()
       ctx.arc(rotateX, rotateY, HANDLE_SIZE / 2 + 2, 0, Math.PI * 2)
-      ctx.fillStyle = COLOR_HANDLE_FILL
+      ctx.fillStyle = COLOR_RECTANGLE_FILL
       ctx.fill()
-      ctx.strokeStyle = COLOR_HANDLE_STROKE
+      ctx.strokeStyle = COLOR_RECTANGLE_STROKE_HOVERED
       ctx.lineWidth = STROKE_WIDTH
       ctx.stroke()
 
@@ -417,7 +463,7 @@ function CanvasComponent() {
       ctx.beginPath()
       ctx.moveTo(rotateX, y - HANDLE_SIZE / 2) // top-center handle
       ctx.lineTo(rotateX, rotateY + HANDLE_SIZE / 2 + 2) // rotation handle
-      ctx.strokeStyle = COLOR_HANDLE_STROKE
+      ctx.strokeStyle = COLOR_RECTANGLE_STROKE_HOVERED
       ctx.lineWidth = STROKE_WIDTH
       ctx.stroke()
     }
