@@ -51,6 +51,84 @@ function CanvasComponent() {
     return () => window.removeEventListener('resize', updateDimensions)
   }, [])
 
+  // Get mouse position relative to canvas
+  const getMousePosition = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Point => {
+    if (!canvasRef.current) return { x: 0, y: 0 }
+    const rect = canvasRef.current.getBoundingClientRect()
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    }
+  }, [])
+
+  // Hit test for start/end points
+  const getPointHitTest = useCallback(
+    (mousePos: Point): 'start' | 'end' | null => {
+      const radius = 10
+      const dist = (p: { x: number; y: number }) => Math.hypot(mousePos.x - p.x, mousePos.y - p.y)
+
+      if (dist(startPoint.center) <= radius) return 'start'
+      if (dist(endPoint.center) <= radius) return 'end'
+      return null
+    },
+    [startPoint, endPoint]
+  )
+
+  // Hit test for rectangles and their handles
+  const getRectHitTest = useCallback(
+    (mousePos: Point): { rectId: string | null; handle: string | null } => {
+      for (let i = rectangles.length - 1; i >= 0; i--) {
+        const rect = rectangles[i]
+
+        const angle = (-rect.rotation * Math.PI) / 180
+        const dx = mousePos.x - rect.center.x
+        const dy = mousePos.y - rect.center.y
+        const localX = dx * Math.cos(angle) - dy * Math.sin(angle) + rect.width / 2
+        const localY = dx * Math.sin(angle) + dy * Math.cos(angle) + rect.height / 2
+
+        // Rotation handle
+        const rotateLocalX = rect.width / 2
+        const rotateLocalY = -ROTATE_HANDLE_OFFSET
+        if (
+          Math.abs(localX - rotateLocalX) <= HANDLE_SIZE / 2 + 2 &&
+          Math.abs(localY - rotateLocalY) <= HANDLE_SIZE / 2 + 2
+        ) {
+          return { rectId: rect.id, handle: 'rotate' }
+        }
+
+        if (
+          localX >= -HANDLE_SIZE &&
+          localX <= rect.width + HANDLE_SIZE &&
+          localY >= -HANDLE_SIZE &&
+          localY <= rect.height + HANDLE_SIZE
+        ) {
+          const handles = [
+            { id: 'nw', x: 0, y: 0 },
+            { id: 'ne', x: rect.width, y: 0 },
+            { id: 'sw', x: 0, y: rect.height },
+            { id: 'se', x: rect.width, y: rect.height },
+            { id: 'top', x: rect.width / 2, y: 0 },
+            { id: 'right', x: rect.width, y: rect.height / 2 },
+            { id: 'bottom', x: rect.width / 2, y: rect.height },
+            { id: 'left', x: 0, y: rect.height / 2 },
+          ]
+
+          for (const handle of handles) {
+            if (Math.abs(localX - handle.x) <= HANDLE_SIZE && Math.abs(localY - handle.y) <= HANDLE_SIZE) {
+              return { rectId: rect.id, handle: handle.id }
+            }
+          }
+
+          if (localX >= 0 && localX <= rect.width && localY >= 0 && localY <= rect.height) {
+            return { rectId: rect.id, handle: 'body' }
+          }
+        }
+      }
+      return { rectId: null, handle: null }
+    },
+    [rectangles]
+  )
+
   // Handle mouse down
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -96,7 +174,7 @@ function CanvasComponent() {
         dragHandle: null,
       })
     },
-    [hoveredRectId, hoveredHandle, addRectangle, setInteraction]
+    [hoveredRectId, hoveredHandle, addRectangle, setInteraction, getMousePosition, getPointHitTest]
   )
 
   // Handle mouse move
@@ -117,7 +195,7 @@ function CanvasComponent() {
         }
 
         // Check if hovering over a rectangle or its handle
-        const hitTest = getHitTest(mousePos)
+        const hitTest = getRectHitTest(mousePos)
         setHoveredRect(hitTest.rectId)
         setHoveredHandle(hitTest.handle)
         setHoveredPoint(null)
@@ -235,6 +313,10 @@ function CanvasComponent() {
       setHoveredHandle,
       setHoveredPoint,
       setCursor,
+      getPointHitTest,
+      getRectHitTest,
+      getMousePosition,
+      movePoint,
     ]
   )
 
@@ -358,72 +440,6 @@ function CanvasComponent() {
     draw()
   }, [dimensions, draw])
 
-  const getPointHitTest = (mousePos: Point): 'start' | 'end' | null => {
-    const radius = 10
-    const dist = (p: { x: number; y: number }) => Math.hypot(mousePos.x - p.x, mousePos.y - p.y)
-
-    if (dist(startPoint.center) <= radius) return 'start'
-    if (dist(endPoint.center) <= radius) return 'end'
-    return null
-  }
-
-  const getHitTest = (mousePos: Point): { rectId: string | null; handle: string | null } => {
-    // Test rectangles from top to bottom (reverse order for proper layering)
-    for (let i = rectangles.length - 1; i >= 0; i--) {
-      const rect = rectangles[i]
-
-      // Transform mouse position to rectangle's local coordinate system
-      const angle = (-rect.rotation * Math.PI) / 180
-      const dx = mousePos.x - rect.center.x
-      const dy = mousePos.y - rect.center.y
-      const localX = dx * Math.cos(angle) - dy * Math.sin(angle) + rect.width / 2
-      const localY = dx * Math.sin(angle) + dy * Math.cos(angle) + rect.height / 2
-
-      // Check rotation handle first (it's outside the rectangle bounds)
-      const rotateLocalX = rect.width / 2
-      const rotateLocalY = -ROTATE_HANDLE_OFFSET
-      if (
-        Math.abs(localX - rotateLocalX) <= HANDLE_SIZE / 2 + 2 &&
-        Math.abs(localY - rotateLocalY) <= HANDLE_SIZE / 2 + 2
-      ) {
-        return { rectId: rect.id, handle: 'rotate' }
-      }
-
-      // Check if mouse is within the extended bounds (including handle areas)
-      if (
-        localX >= -HANDLE_SIZE &&
-        localX <= rect.width + HANDLE_SIZE &&
-        localY >= -HANDLE_SIZE &&
-        localY <= rect.height + HANDLE_SIZE
-      ) {
-        // Check resize handles
-        const handles = [
-          { id: 'nw', x: 0, y: 0 },
-          { id: 'ne', x: rect.width, y: 0 },
-          { id: 'sw', x: 0, y: rect.height },
-          { id: 'se', x: rect.width, y: rect.height },
-          { id: 'top', x: rect.width / 2, y: 0 },
-          { id: 'right', x: rect.width, y: rect.height / 2 },
-          { id: 'bottom', x: rect.width / 2, y: rect.height },
-          { id: 'left', x: 0, y: rect.height / 2 },
-        ]
-
-        // Check handles first (they take priority over body)
-        for (const handle of handles) {
-          if (Math.abs(localX - handle.x) <= HANDLE_SIZE && Math.abs(localY - handle.y) <= HANDLE_SIZE) {
-            return { rectId: rect.id, handle: handle.id }
-          }
-        }
-
-        // Check if it's within the rectangle body
-        if (localX >= 0 && localX <= rect.width && localY >= 0 && localY <= rect.height) {
-          return { rectId: rect.id, handle: 'body' }
-        }
-      }
-    }
-    return { rectId: null, handle: null }
-  }
-
   const getCursorForHandle = (handle: string): CursorType => {
     const cursorMap: { [key: string]: CursorType } = {
       body: 'grab',
@@ -441,15 +457,6 @@ function CanvasComponent() {
   }
 
   const generateId = () => Math.random().toString(36)
-
-  const getMousePosition = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Point => {
-    if (!canvasRef.current) return { x: 0, y: 0 }
-    const rect = canvasRef.current.getBoundingClientRect()
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    }
-  }, [])
 
   return (
     <div className="w-full h-full" ref={containerRef}>

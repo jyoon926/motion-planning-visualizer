@@ -49,7 +49,7 @@ interface CanvasState {
   clearSelection: () => void
 }
 
-export const useCanvasStore = create<CanvasState>((set, _) => ({
+export const useCanvasStore = create<CanvasState>((set) => ({
   rectangles: INITIAL_RECTANGLES,
   startPoint: INITIAL_START,
   endPoint: INITIAL_END,
