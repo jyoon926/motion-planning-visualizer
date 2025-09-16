@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CursorType, DraggablePoint, Point, PointType, Rectangle } from '../utils/types'
 import { useCanvasStore } from '../utils/store'
+import { computeVisibilityGraph } from '../algorithms/visibilityGraph'
+import { computeVoronoi } from '../algorithms/voronoi'
 
 const HANDLE_SIZE = 8
 const ROTATE_HANDLE_OFFSET = 30
@@ -8,8 +10,15 @@ const COLOR_BACKGROUND = '#d0d0d0'
 const COLOR_RECTANGLE_FILL = '#f5f5f5'
 const COLOR_RECTANGLE_STROKE = '#444'
 const COLOR_RECTANGLE_STROKE_HOVERED = '#000'
-const COLOR_RECTANGLE_DELETE_HOVERED = '#dc2626' // Red color for delete mode
+const COLOR_RECTANGLE_DELETE_HOVERED = '#dc2626'
+const COLOR_START_POINT = 'green'
+const COLOR_END_POINT = 'red'
+const COLOR_PATH_STROKE = 'blue'
+const COLOR_GRAPH_STROKE = '#0000001F'
+const COLOR_DOTS = '#999'
 const STROKE_WIDTH = 1.5
+const GRAPH_STROKE_WIDTH = 1
+const PATH_STROKE_WIDTH = 3
 const POINT_RADIUS = 12
 
 function CanvasComponent() {
@@ -17,6 +26,8 @@ function CanvasComponent() {
     rectangles,
     startPoint,
     endPoint,
+    path,
+    algorithm,
     hoveredRectId,
     hoveredHandle,
     hoveredPointId,
@@ -32,12 +43,23 @@ function CanvasComponent() {
     setHoveredRect,
     setHoveredHandle,
     setHoveredPoint,
+    setPath,
   } = useCanvasStore()
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const isDrawingRef = useRef(false)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+
+  // Recompute path and full graph when geometry or algorithm changes
+  useEffect(() => {
+    const pathResult =
+      algorithm === 'visibilityGraph'
+        ? computeVisibilityGraph(rectangles, startPoint.center, endPoint.center)
+        : computeVoronoi(rectangles, startPoint.center, endPoint.center)
+    setPath(pathResult)
+    draw()
+  }, [rectangles, startPoint, endPoint, algorithm])
 
   // Update canvas dimensions when container resizes
   useEffect(() => {
@@ -390,16 +412,66 @@ function CanvasComponent() {
     ctx.fillStyle = COLOR_BACKGROUND
     ctx.fillRect(0, 0, canvas.width, canvas.height)
 
+    // Draw dot grid
+    drawDotGrid(ctx, canvas)
+
     // Draw rectangles
     rectangles.forEach((rect) => {
       const isHovered = hoveredRectId === rect.id
       drawRectangle(ctx, rect, isHovered)
     })
 
+    // Draw path overlay
+    drawPath(ctx)
+
     // Draw start/end points
     drawPoint(ctx, startPoint)
     drawPoint(ctx, endPoint)
-  }, [startPoint, endPoint, rectangles, hoveredRectId, hoveredPointId, tool])
+  }, [startPoint, endPoint, rectangles, hoveredRectId, hoveredPointId, tool, path])
+
+  const drawDotGrid = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
+    const dotSpacing = 30
+    const dotSize = STROKE_WIDTH
+    ctx.fillStyle = COLOR_DOTS
+    for (let x = dotSpacing; x < canvas.width; x += dotSpacing) {
+      for (let y = dotSpacing; y < canvas.height; y += dotSpacing) {
+        ctx.beginPath()
+        ctx.arc(x, y, dotSize, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+  }
+
+  const drawPath = (ctx: CanvasRenderingContext2D) => {
+    if (!path) return
+    ctx.save()
+
+    // Draw full graph edges
+    if (path.fullGraph.length) {
+      ctx.strokeStyle = COLOR_GRAPH_STROKE
+      ctx.lineWidth = GRAPH_STROKE_WIDTH
+      ctx.beginPath()
+      for (const [a, b] of path.fullGraph) {
+        ctx.moveTo(a.x, a.y)
+        ctx.lineTo(b.x, b.y)
+      }
+      ctx.stroke()
+    }
+
+    // Draw path line
+    ctx.strokeStyle = COLOR_PATH_STROKE
+    ctx.lineWidth = PATH_STROKE_WIDTH
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    for (const [a, b] of path.path) {
+      ctx.moveTo(a.x, a.y)
+      ctx.lineTo(b.x, b.y)
+    }
+    ctx.stroke()
+
+    ctx.restore()
+  }
 
   // Draw a single rectangle
   const drawRectangle = (ctx: CanvasRenderingContext2D, rect: Rectangle, isHovered: boolean) => {
@@ -424,7 +496,7 @@ function CanvasComponent() {
         ? COLOR_RECTANGLE_DELETE_HOVERED
         : COLOR_RECTANGLE_STROKE_HOVERED
       : COLOR_RECTANGLE_STROKE
-    ctx.lineWidth = isHovered && isDeleteMode ? 2 : STROKE_WIDTH
+    ctx.lineWidth = STROKE_WIDTH
     ctx.strokeRect(x, y, rect.width, rect.height)
 
     // Draw handles only if hovered and in edit mode
@@ -474,7 +546,7 @@ function CanvasComponent() {
   const drawPoint = (ctx: CanvasRenderingContext2D, point: DraggablePoint) => {
     ctx.beginPath()
     ctx.arc(point.center.x, point.center.y, POINT_RADIUS, 0, Math.PI * 2)
-    ctx.fillStyle = point.id === startPoint.id ? 'green' : 'red'
+    ctx.fillStyle = point.id === startPoint.id ? COLOR_START_POINT : COLOR_END_POINT
     ctx.fill()
     ctx.strokeStyle = hoveredPointId === point.id ? COLOR_RECTANGLE_STROKE_HOVERED : COLOR_RECTANGLE_STROKE
     ctx.lineWidth = STROKE_WIDTH

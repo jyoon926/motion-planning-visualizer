@@ -33,3 +33,8 @@ export interface InteractionState {
   selectedRectId: string | null
   dragHandle: string | null // 'body', 'top', 'right', 'bottom', 'left', 'nw', 'ne', 'sw', 'se'
 }
+
+export type PathResult = {
+  fullGraph: [Point, Point][] // all edges in the full graph for visualization
+  path: [Point, Point][] // the computed path from start to end
+}

@@ -1,5 +1,14 @@
 import { create } from 'zustand'
-import type { Rectangle, InteractionState, CursorType, DraggablePoint, PointType, Tool, Algorithm } from './types'
+import type {
+  Rectangle,
+  InteractionState,
+  CursorType,
+  DraggablePoint,
+  PointType,
+  Tool,
+  Algorithm,
+  PathResult,
+} from './types'
 
 const INITIAL_RECTANGLES: Rectangle[] = [
   {
@@ -38,6 +47,7 @@ interface CanvasState {
   cursor: CursorType
   tool: Tool
   algorithm: Algorithm
+  path: PathResult | null
 
   addRectangle: (rect: Rectangle) => void
   updateRectangle: (id: string, updates: Partial<Rectangle>) => void
@@ -51,6 +61,7 @@ interface CanvasState {
   clearSelection: () => void
   setTool: (tool: Tool) => void
   setAlgorithm: (algorithm: Algorithm) => void
+  setPath: (path: PathResult | null) => void
 }
 
 export const useCanvasStore = create<CanvasState>((set) => ({
@@ -70,6 +81,7 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   cursor: 'default',
   tool: 'edit',
   algorithm: 'visibilityGraph',
+  path: null,
 
   addRectangle: (rect) =>
     set((state) => ({
@@ -140,4 +152,5 @@ export const useCanvasStore = create<CanvasState>((set) => ({
   setTool: (tool) => set({ tool }),
 
   setAlgorithm: (algorithm) => set({ algorithm }),
+  setPath: (path) => set({ path }),
 }))

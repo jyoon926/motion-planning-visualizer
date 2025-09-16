@@ -39,9 +39,6 @@ function HeaderComponent() {
             Voronoi
           </button>
         </div>
-        <button className="py-2 px-5 rounded-full bg-black/80 backdrop-blur shadow-md text-white cursor-pointer">
-          Generate Path
-        </button>
       </div>
     </>
   )
