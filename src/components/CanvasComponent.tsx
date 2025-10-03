@@ -95,12 +95,6 @@ function CanvasComponent() {
   }, [])
 
   // Run algorithm when polygons, start, goal, or algorithm changes
-  const runAlgorithm = () => {
-    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons)
-    setTimeline(steps)
-    setCurrentStep(live ? steps.length - 1 : 0)
-  }
-
   useEffect(() => {
     if (live) {
       runAlgorithm()
@@ -108,7 +102,7 @@ function CanvasComponent() {
       setTimeline([])
       setCurrentStep(0)
     }
-  }, [polygons, startPoint, goalPoint, algorithm, live, runAlgorithm])
+  }, [polygons, startPoint, goalPoint, algorithm, live])
 
   // Handle play/pause of timeline
   useEffect(() => {
@@ -537,6 +531,12 @@ function CanvasComponent() {
       // Add new point
       setCurrentPoints([...currentPoints, pos])
     }
+  }
+
+  const runAlgorithm = () => {
+    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons)
+    setTimeline(steps)
+    setCurrentStep(live ? steps.length - 1 : 0)
   }
 
   // MARK: JSX
