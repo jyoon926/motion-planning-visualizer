@@ -95,6 +95,12 @@ function CanvasComponent() {
   }, [])
 
   // Run algorithm when polygons, start, goal, or algorithm changes
+  const runAlgorithm = () => {
+    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons)
+    setTimeline(steps)
+    setCurrentStep(live ? steps.length - 1 : 0)
+  }
+
   useEffect(() => {
     if (live) {
       runAlgorithm()
@@ -102,7 +108,7 @@ function CanvasComponent() {
       setTimeline([])
       setCurrentStep(0)
     }
-  }, [polygons, startPoint, goalPoint, algorithm, live])
+  }, [polygons, startPoint, goalPoint, algorithm, live, runAlgorithm])
 
   // Handle play/pause of timeline
   useEffect(() => {
@@ -290,6 +296,7 @@ function CanvasComponent() {
     hoveredSpecialPoint,
     currentStep,
     live,
+    timeline,
   ])
 
   // MARK: Handlers/Helpers
@@ -532,12 +539,6 @@ function CanvasComponent() {
     }
   }
 
-  const runAlgorithm = () => {
-    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons)
-    setTimeline(steps)
-    setCurrentStep(live ? steps.length - 1 : 0)
-  }
-
   // MARK: JSX
   return (
     <div className="w-full h-full flex flex-col items-center gap-2 p-2">
@@ -549,17 +550,15 @@ function CanvasComponent() {
         <div className="flex gap-2">
           <button
             onClick={() => setMode('edit')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
-              mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <MdEdit />
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
-              mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <MdDelete />
           </button>

@@ -12,6 +12,7 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
   update('Starting voronoi path computation...')
 
   // TODO: Replace with actual voronoi algorithm
+  console.log(start, goal, obstacles)
 
   update('Done!')
 
