@@ -1,9 +1,21 @@
-import type { PathResult, Point, Rectangle } from '../utils/types'
+import type { AlgorithmStep, Point } from '../components/CanvasComponent'
 
-export const computeVoronoi = (rectangles: Rectangle[], start: Point, end: Point): PathResult => {
-  // Placeholder implementation
-  return {
-    fullGraph: [[start, end]],
-    path: [[start, end]],
+function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): AlgorithmStep[] {
+  const timeline: AlgorithmStep[] = []
+  const vertices: Point[] = []
+  const edges: [Point, Point][] = []
+
+  const update = (message: string) => {
+    timeline.push({ message, vertices: [...vertices], edges: [...edges] })
   }
+
+  update('Starting voronoi path computation...')
+
+  // TODO: Replace with actual voronoi algorithm
+
+  update('Done!')
+
+  return timeline
 }
+
+export { computeVoronoi }

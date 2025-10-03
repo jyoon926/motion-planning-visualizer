@@ -1,592 +1,631 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CursorType, DraggablePoint, Point, PointType, Rectangle } from '../utils/types'
-import { useCanvasStore } from '../utils/store'
+import { useEffect, useRef, useState } from 'react'
 import { computeVisibilityGraph } from '../algorithms/visibilityGraph'
 import { computeVoronoi } from '../algorithms/voronoi'
+import { MdDelete, MdEdit, MdPause, MdPlayArrow } from 'react-icons/md'
 
-const HANDLE_SIZE = 8
-const ROTATE_HANDLE_OFFSET = 30
-const COLOR_BACKGROUND = '#d0d0d0'
-const COLOR_RECTANGLE_FILL = '#f5f5f5'
-const COLOR_RECTANGLE_STROKE = '#444'
-const COLOR_RECTANGLE_STROKE_HOVERED = '#000'
-const COLOR_RECTANGLE_DELETE_HOVERED = '#dc2626'
-const COLOR_START_POINT = 'green'
-const COLOR_END_POINT = 'red'
-const COLOR_PATH_STROKE = 'blue'
-const COLOR_GRAPH_STROKE = '#0000001F'
-const COLOR_DOTS = '#999'
-const STROKE_WIDTH = 1.5
-const GRAPH_STROKE_WIDTH = 1
-const PATH_STROKE_WIDTH = 3
-const POINT_RADIUS = 12
+// MARK: Interfaces and Types
+
+export interface Point {
+  x: number
+  y: number
+}
+
+interface HoveredPoint {
+  polygonIdx: number
+  pointIdx: number
+}
+
+interface HoveredPolygon {
+  polygonIdx: number
+  type: 'body'
+}
+
+export interface AlgorithmStep {
+  message: string
+  vertices?: Point[]
+  edges?: [Point, Point][]
+  path?: Point[]
+}
+
+type Mode = 'edit' | 'delete'
+type SpecialPoint = 'start' | 'goal' | null
+type AlgorithmType = 'visibility' | 'voronoi'
+interface AlgorithmInfo {
+  name: string
+  algorithm: (start: Point, goal: Point, obstacles: Point[][]) => AlgorithmStep[]
+}
+
+const algorithms: Record<AlgorithmType, AlgorithmInfo> = {
+  visibility: {
+    name: 'Visibility Graph',
+    algorithm: computeVisibilityGraph,
+  },
+  voronoi: {
+    name: 'Voronoi',
+    algorithm: computeVoronoi,
+  },
+}
 
 function CanvasComponent() {
-  const {
-    rectangles,
-    startPoint,
-    endPoint,
-    path,
-    algorithm,
-    hoveredRectId,
-    hoveredHandle,
-    hoveredPointId,
-    interaction,
-    cursor,
-    tool,
-    addRectangle,
-    updateRectangle,
-    deleteRectangle,
-    setInteraction,
-    movePoint,
-    setCursor,
-    setHoveredRect,
-    setHoveredHandle,
-    setHoveredPoint,
-    setPath,
-  } = useCanvasStore()
-
+  // MARK: Refs and State
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const isDrawingRef = useRef(false)
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const [polygons, setPolygons] = useState<Point[][]>([])
+  const [currentPoints, setCurrentPoints] = useState<Point[]>([])
+  const [isComplete, setIsComplete] = useState<boolean>(true)
+  const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint | null>(null)
+  const [hoveredPolygon, setHoveredPolygon] = useState<HoveredPolygon | null>(null)
+  const [draggedPoint, setDraggedPoint] = useState<HoveredPoint | null>(null)
+  const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 })
+  const [isDraggingPolygon, setIsDraggingPolygon] = useState<number | false>(false)
+  const [mousePos, setMousePos] = useState<Point | null>(null)
+  const [mode, setMode] = useState<Mode>('edit')
+  const [cursor, setCursor] = useState<string>('crosshair')
+  const [hasDragged, setHasDragged] = useState<boolean>(false)
+  const [canvasSize, setCanvasSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+  const [algorithm, setAlgorithm] = useState<AlgorithmType>('visibility')
+  const [timeline, setTimeline] = useState<AlgorithmStep[]>([])
+  const [currentStep, setCurrentStep] = useState<number>(-1)
+  const [live, setLive] = useState<boolean>(true)
+  const [isPlaying, setIsPlaying] = useState<boolean>(false)
+  // Special points
+  const [startPoint, setStartPoint] = useState<Point>({ x: 100, y: 200 })
+  const [goalPoint, setGoalPoint] = useState<Point>({ x: 300, y: 200 })
+  const [draggedSpecialPoint, setDraggedSpecialPoint] = useState<SpecialPoint>(null)
+  const [hoveredSpecialPoint, setHoveredSpecialPoint] = useState<SpecialPoint>(null)
 
-  // Recompute path and full graph when geometry or algorithm changes
-  useEffect(() => {
-    const pathResult =
-      algorithm === 'visibilityGraph'
-        ? computeVisibilityGraph(rectangles, startPoint.center, endPoint.center)
-        : computeVoronoi(rectangles, startPoint.center, endPoint.center)
-    setPath(pathResult)
-    draw()
-  }, [rectangles, startPoint, endPoint, algorithm])
+  const POINT_RADIUS = 5
+  const HOVER_RADIUS = 10
+  const SPECIAL_POINT_RADIUS = 16
 
-  // Update canvas dimensions when container resizes
+  // MARK: Use Effects
+
+  // Handle canvas resize
   useEffect(() => {
-    const updateDimensions = () => {
+    const handleResize = () => {
       if (containerRef.current) {
-        const { offsetWidth, offsetHeight } = containerRef.current
-        setDimensions({ width: offsetWidth, height: offsetHeight })
+        const { width, height } = containerRef.current.getBoundingClientRect()
+        setCanvasSize({ width, height })
       }
     }
-    updateDimensions()
-    window.addEventListener('resize', updateDimensions)
-    return () => window.removeEventListener('resize', updateDimensions)
+
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Get mouse position relative to canvas
-  const getMousePosition = useCallback((e: React.MouseEvent<HTMLCanvasElement>): Point => {
-    if (!canvasRef.current) return { x: 0, y: 0 }
-    const rect = canvasRef.current.getBoundingClientRect()
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+  // Run algorithm when polygons, start, goal, or algorithm changes
+  useEffect(() => {
+    if (live) {
+      runAlgorithm();
+    } else {
+      setTimeline([]);
+      setCurrentStep(0);
     }
-  }, [])
+  }, [polygons, startPoint, goalPoint, algorithm, live])
 
-  // Hit test for start/end points
-  const getPointHitTest = useCallback(
-    (mousePos: Point): PointType | null => {
-      const radius = 10
-      const dist = (p: { x: number; y: number }) => Math.hypot(mousePos.x - p.x, mousePos.y - p.y)
+  // Handle play/pause of timeline
+  useEffect(() => {
+    if (!isPlaying) return
 
-      if (dist(startPoint.center) <= radius) return 'start'
-      if (dist(endPoint.center) <= radius) return 'end'
-      return null
-    },
-    [startPoint, endPoint]
-  )
-
-  // Hit test for rectangles and their handles
-  const getRectHitTest = useCallback(
-    (mousePos: Point): { rectId: string | null; handle: string | null } => {
-      for (let i = rectangles.length - 1; i >= 0; i--) {
-        const rect = rectangles[i]
-
-        const angle = (-rect.rotation * Math.PI) / 180
-        const dx = mousePos.x - rect.center.x
-        const dy = mousePos.y - rect.center.y
-        const localX = dx * Math.cos(angle) - dy * Math.sin(angle) + rect.width / 2
-        const localY = dx * Math.sin(angle) + dy * Math.cos(angle) + rect.height / 2
-
-        // Rotation handle
-        const rotateLocalX = rect.width / 2
-        const rotateLocalY = -ROTATE_HANDLE_OFFSET
-        if (
-          Math.abs(localX - rotateLocalX) <= HANDLE_SIZE / 2 + 2 &&
-          Math.abs(localY - rotateLocalY) <= HANDLE_SIZE / 2 + 2
-        ) {
-          return { rectId: rect.id, handle: 'rotate' }
-        }
-
-        if (
-          localX >= -HANDLE_SIZE &&
-          localX <= rect.width + HANDLE_SIZE &&
-          localY >= -HANDLE_SIZE &&
-          localY <= rect.height + HANDLE_SIZE
-        ) {
-          const handles = [
-            { id: 'nw', x: 0, y: 0 },
-            { id: 'ne', x: rect.width, y: 0 },
-            { id: 'sw', x: 0, y: rect.height },
-            { id: 'se', x: rect.width, y: rect.height },
-            { id: 'top', x: rect.width / 2, y: 0 },
-            { id: 'right', x: rect.width, y: rect.height / 2 },
-            { id: 'bottom', x: rect.width / 2, y: rect.height },
-            { id: 'left', x: 0, y: rect.height / 2 },
-          ]
-
-          for (const handle of handles) {
-            if (Math.abs(localX - handle.x) <= HANDLE_SIZE && Math.abs(localY - handle.y) <= HANDLE_SIZE) {
-              return { rectId: rect.id, handle: handle.id }
-            }
-          }
-
-          if (localX >= 0 && localX <= rect.width && localY >= 0 && localY <= rect.height) {
-            return { rectId: rect.id, handle: 'body' }
-          }
-        }
-      }
-      return { rectId: null, handle: null }
-    },
-    [rectangles]
-  )
-
-  // Handle mouse down
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const mousePos = getMousePosition(e)
-
-      // Delete tool behavior
-      if (tool === 'delete') {
-        const hitTest = getRectHitTest(mousePos)
-        if (hitTest.rectId) {
-          deleteRectangle(hitTest.rectId)
-          setHoveredRect(null)
-          setHoveredHandle(null)
-        }
-        return
-      }
-
-      // Edit tool behavior (original functionality)
-      if (tool === 'edit') {
-        // Check if clicked on start/end point
-        const pointHit = getPointHitTest(mousePos)
-        if (pointHit) {
-          setInteraction({
-            mode: 'moving',
-            startPoint: mousePos,
-            selectedPointId: pointHit,
-            selectedRectId: null,
-          })
-          return
-        }
-
-        // Check if clicked on a rectangle or its handle
-        if (hoveredRectId && hoveredHandle) {
-          setInteraction({
-            mode: hoveredHandle === 'body' ? 'moving' : hoveredHandle === 'rotate' ? 'rotating' : 'resizing',
-            startPoint: mousePos,
-            selectedRectId: hoveredRectId,
-            dragHandle: hoveredHandle,
-          })
-          return
-        }
-
-        // Otherwise, start drawing a new rectangle
-        isDrawingRef.current = true
-        const newRect: Rectangle = {
-          id: generateId(),
-          center: { x: mousePos.x, y: mousePos.y },
-          width: 0,
-          height: 0,
-          rotation: 0,
-        }
-        addRectangle(newRect)
-        setInteraction({
-          mode: 'drawing',
-          startPoint: mousePos,
-          selectedRectId: newRect.id,
-          dragHandle: null,
-        })
-      }
-    },
-    [
-      tool,
-      hoveredRectId,
-      hoveredHandle,
-      addRectangle,
-      deleteRectangle,
-      setInteraction,
-      setHoveredRect,
-      setHoveredHandle,
-      getMousePosition,
-      getPointHitTest,
-      getRectHitTest,
-    ]
-  )
-
-  // Handle mouse move
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const mousePos = getMousePosition(e)
-
-      // Update hover state when idle
-      if (interaction.mode === 'idle') {
-        // Delete tool behavior - only hover rectangles, simpler cursor
-        if (tool === 'delete') {
-          const hitTest = getRectHitTest(mousePos)
-          setHoveredRect(hitTest.rectId)
-          setHoveredHandle(null) // Don't show handles in delete mode
-          setHoveredPoint(null)
-          setCursor(hitTest.rectId ? 'pointer' : 'default')
-          return
-        }
-
-        // Edit tool behavior (original functionality)
-        if (tool === 'edit') {
-          // Check if hovering over start/end point
-          const pointHit = getPointHitTest(mousePos)
-          if (pointHit) {
-            setHoveredRect(null)
-            setHoveredHandle(null)
-            setHoveredPoint(pointHit)
-            setCursor('grab')
-            return
-          }
-
-          // Check if hovering over a rectangle or its handle
-          const hitTest = getRectHitTest(mousePos)
-          setHoveredRect(hitTest.rectId)
-          setHoveredHandle(hitTest.handle)
-          setHoveredPoint(null)
-          setCursor(hitTest.handle ? getCursorForHandle(hitTest.handle) : 'crosshair')
-          return
-        }
-      }
-
-      if (!interaction.startPoint || !(interaction.selectedRectId || interaction.selectedPointId)) return
-
-      const rect = rectangles.find((r) => r.id === interaction.selectedRectId)!
-
-      const dx = mousePos.x - interaction.startPoint.x
-      const dy = mousePos.y - interaction.startPoint.y
-
-      switch (interaction.mode) {
-        case 'drawing':
-          updateRectangle(rect!.id, {
-            width: Math.abs(dx),
-            height: Math.abs(dy),
-            center: {
-              x: interaction.startPoint.x + dx / 2,
-              y: interaction.startPoint.y + dy / 2,
-            },
-          })
-          break
-
-        case 'moving':
-          if (interaction.selectedPointId) {
-            movePoint(interaction.selectedPointId, {
-              center: {
-                x: mousePos.x,
-                y: mousePos.y,
-              },
-            })
-          } else if (rect) {
-            updateRectangle(rect.id, {
-              center: {
-                x: rect.center.x + dx,
-                y: rect.center.y + dy,
-              },
-            })
-          }
-          setInteraction({ startPoint: mousePos })
-          break
-
-        case 'resizing': {
-          let newCX = rect.center.x
-          let newCY = rect.center.y
-          let newW = rect.width
-          let newH = rect.height
-          const projW = dx * Math.cos(rect.rotation * (Math.PI / 180)) + dy * Math.sin(rect.rotation * (Math.PI / 180))
-          const projH =
-            dx * Math.cos((rect.rotation + 90) * (Math.PI / 180)) +
-            dy * Math.sin((rect.rotation + 90) * (Math.PI / 180))
-          const shiftXW = (projW / 2) * Math.cos(rect.rotation * (Math.PI / 180))
-          const shiftYW = (projW / 2) * Math.sin(rect.rotation * (Math.PI / 180))
-          const shiftXH = (projH / 2) * Math.cos((rect.rotation + 90) * (Math.PI / 180))
-          const shiftYH = (projH / 2) * Math.sin((rect.rotation + 90) * (Math.PI / 180))
-
-          switch (interaction.dragHandle) {
-            case 'right':
-            case 'ne':
-            case 'se':
-              newW = rect.width + projW
-              newCX += shiftXW
-              newCY += shiftYW
-              break
-            case 'left':
-            case 'nw':
-            case 'sw':
-              newW = rect.width - projW
-              newCX += shiftXW
-              newCY += shiftYW
-              break
-          }
-          switch (interaction.dragHandle) {
-            case 'bottom':
-            case 'se':
-            case 'sw':
-              newH = rect.height + projH
-              newCX += shiftXH
-              newCY += shiftYH
-              break
-            case 'top':
-            case 'ne':
-            case 'nw':
-              newH = rect.height - projH
-              newCX += shiftXH
-              newCY += shiftYH
-              break
-          }
-
-          updateRectangle(rect.id, {
-            center: { x: newCX, y: newCY },
-            width: Math.max(10, newW),
-            height: Math.max(10, newH),
-          })
-          setInteraction({ startPoint: mousePos })
-          break
-        }
-
-        case 'rotating': {
-          const angle = (Math.atan2(mousePos.y - rect.center.y, mousePos.x - rect.center.x) * 180) / Math.PI
-          updateRectangle(rect.id, { rotation: angle + 90 })
-          break
-        }
-      }
-    },
-    [
-      tool,
-      interaction,
-      rectangles,
-      updateRectangle,
-      setInteraction,
-      setHoveredRect,
-      setHoveredHandle,
-      setHoveredPoint,
-      setCursor,
-      getPointHitTest,
-      getRectHitTest,
-      getMousePosition,
-      movePoint,
-    ]
-  )
-
-  // Handle mouse up
-  const handleMouseUp = useCallback(() => {
-    if (isDrawingRef.current) {
-      isDrawingRef.current = false
+    if (currentStep >= timeline.length - 1) {
+      setIsPlaying(false)
+      return
     }
-    setInteraction({
-      mode: 'idle',
-      dragHandle: null,
-      startPoint: null,
-      selectedRectId: null,
-      selectedPointId: null,
-    })
-  }, [setInteraction])
 
-  // Draw function
-  const draw = useCallback(() => {
+    const interval = setInterval(() => {
+      setCurrentStep((prev) => {
+        if (prev < timeline.length - 1) {
+          return prev + 1
+        } else {
+          clearInterval(interval)
+          setIsPlaying(false)
+          return prev
+        }
+      })
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [isPlaying, currentStep, timeline])
+
+  // MARK: Draw canvas
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // Draw background
-    ctx.fillStyle = COLOR_BACKGROUND
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    // Draw completed polygons
+    polygons.forEach((poly, polyIdx) => {
+      const isHovered = hoveredPolygon?.polygonIdx === polyIdx && hoveredPolygon.type === 'body'
+      const hoverColor = mode === 'delete' ? '#EF4444' : '#3B82F6'
 
-    // Draw dot grid
-    drawDotGrid(ctx, canvas)
+      // Fill polygon
+      ctx.fillStyle = isHovered && mode === 'delete' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(156, 163, 175, 0.4)'
+      ctx.beginPath()
+      ctx.moveTo(poly[0].x, poly[0].y)
+      for (let i = 1; i < poly.length; i++) {
+        ctx.lineTo(poly[i].x, poly[i].y)
+      }
+      ctx.closePath()
+      ctx.fill()
 
-    // Draw rectangles
-    rectangles.forEach((rect) => {
-      const isHovered = hoveredRectId === rect.id
-      drawRectangle(ctx, rect, isHovered)
+      // Draw edges
+      ctx.strokeStyle = isHovered ? hoverColor : '#4B5563'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(poly[0].x, poly[0].y)
+      for (let i = 1; i < poly.length; i++) {
+        ctx.lineTo(poly[i].x, poly[i].y)
+      }
+      ctx.closePath()
+      ctx.stroke()
+
+      // Draw points
+      poly.forEach((pt, ptIdx) => {
+        ctx.beginPath()
+        ctx.arc(pt.x, pt.y, POINT_RADIUS, 0, Math.PI * 2)
+
+        const isPointHovered = hoveredPoint?.polygonIdx === polyIdx && hoveredPoint.pointIdx === ptIdx
+        const isPolyHovered = hoveredPolygon?.polygonIdx === polyIdx
+
+        ctx.fillStyle = isPointHovered || isPolyHovered ? hoverColor : '#4B5563'
+        ctx.fill()
+      })
     })
 
-    // Draw path overlay
-    drawPath(ctx)
+    // Draw current polygon being drawn
+    if (!isComplete && currentPoints.length > 0) {
+      ctx.strokeStyle = '#4B5563'
+      ctx.lineWidth = 2
+      ctx.beginPath()
+      ctx.moveTo(currentPoints[0].x, currentPoints[0].y)
+      for (let i = 1; i < currentPoints.length; i++) {
+        ctx.lineTo(currentPoints[i].x, currentPoints[i].y)
+      }
+      ctx.stroke()
 
-    // Draw start/end points
-    drawPoint(ctx, startPoint)
-    drawPoint(ctx, endPoint)
-  }, [startPoint, endPoint, rectangles, hoveredRectId, hoveredPointId, tool, path])
-
-  const drawDotGrid = (ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement) => {
-    const dotSpacing = 30
-    const dotSize = STROKE_WIDTH
-    ctx.fillStyle = COLOR_DOTS
-    for (let x = dotSpacing; x < canvas.width; x += dotSpacing) {
-      for (let y = dotSpacing; y < canvas.height; y += dotSpacing) {
+      // Draw preview line to mouse position
+      if (mousePos) {
+        ctx.strokeStyle = '#3B82F6'
+        ctx.lineWidth = 2
         ctx.beginPath()
-        ctx.arc(x, y, dotSize, 0, Math.PI * 2)
+        ctx.moveTo(currentPoints[currentPoints.length - 1].x, currentPoints[currentPoints.length - 1].y)
+        ctx.lineTo(mousePos.x, mousePos.y)
+        ctx.stroke()
+
+        // Preview line to first point if close
+        if (currentPoints.length > 2) {
+          const dx = mousePos.x - currentPoints[0].x
+          const dy = mousePos.y - currentPoints[0].y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < HOVER_RADIUS) {
+            ctx.strokeStyle = '#3B82F6'
+            ctx.beginPath()
+            ctx.moveTo(currentPoints[currentPoints.length - 1].x, currentPoints[currentPoints.length - 1].y)
+            ctx.lineTo(currentPoints[0].x, currentPoints[0].y)
+            ctx.stroke()
+          }
+        }
+      }
+
+      // Draw current points
+      currentPoints.forEach((pt, idx) => {
+        ctx.beginPath()
+        ctx.arc(pt.x, pt.y, POINT_RADIUS, 0, Math.PI * 2)
+        ctx.fillStyle = idx === 0 ? '#3B82F6' : '#4B5563'
         ctx.fill()
-      }
-    }
-  }
-
-  const drawPath = (ctx: CanvasRenderingContext2D) => {
-    if (!path) return
-    ctx.save()
-
-    // Draw full graph edges
-    if (path.fullGraph.length) {
-      ctx.strokeStyle = COLOR_GRAPH_STROKE
-      ctx.lineWidth = GRAPH_STROKE_WIDTH
-      ctx.beginPath()
-      for (const [a, b] of path.fullGraph) {
-        ctx.moveTo(a.x, a.y)
-        ctx.lineTo(b.x, b.y)
-      }
-      ctx.stroke()
-    }
-
-    // Draw path line
-    ctx.strokeStyle = COLOR_PATH_STROKE
-    ctx.lineWidth = PATH_STROKE_WIDTH
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.beginPath()
-    for (const [a, b] of path.path) {
-      ctx.moveTo(a.x, a.y)
-      ctx.lineTo(b.x, b.y)
-    }
-    ctx.stroke()
-
-    ctx.restore()
-  }
-
-  // Draw a single rectangle
-  const drawRectangle = (ctx: CanvasRenderingContext2D, rect: Rectangle, isHovered: boolean) => {
-    ctx.save()
-
-    // Translate to rectangle center for rotation
-    ctx.translate(rect.center.x, rect.center.y)
-    ctx.rotate((rect.rotation * Math.PI) / 180)
-
-    // Draw rectangle from center
-    const x = -rect.width / 2
-    const y = -rect.height / 2
-
-    // Fill
-    ctx.fillStyle = COLOR_RECTANGLE_FILL
-    ctx.fillRect(x, y, rect.width, rect.height)
-
-    // Stroke - use red color if hovered in delete mode
-    const isDeleteMode = tool === 'delete'
-    ctx.strokeStyle = isHovered
-      ? isDeleteMode
-        ? COLOR_RECTANGLE_DELETE_HOVERED
-        : COLOR_RECTANGLE_STROKE_HOVERED
-      : COLOR_RECTANGLE_STROKE
-    ctx.lineWidth = STROKE_WIDTH
-    ctx.strokeRect(x, y, rect.width, rect.height)
-
-    // Draw handles only if hovered and in edit mode
-    if (isHovered && tool === 'edit') {
-      const handles = [
-        { id: 'nw', x: x, y: y },
-        { id: 'ne', x: x + rect.width, y: y },
-        { id: 'sw', x: x, y: y + rect.height },
-        { id: 'se', x: x + rect.width, y: y + rect.height },
-        { id: 'top', x: x + rect.width / 2, y: y },
-        { id: 'right', x: x + rect.width, y: y + rect.height / 2 },
-        { id: 'bottom', x: x + rect.width / 2, y: y + rect.height },
-        { id: 'left', x: x, y: y + rect.height / 2 },
-      ]
-
-      handles.forEach((handle) => {
-        ctx.fillStyle = COLOR_RECTANGLE_FILL
-        ctx.fillRect(handle.x - HANDLE_SIZE / 2, handle.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
-        ctx.strokeStyle = COLOR_RECTANGLE_STROKE_HOVERED
-        ctx.lineWidth = STROKE_WIDTH
-        ctx.strokeRect(handle.x - HANDLE_SIZE / 2, handle.y - HANDLE_SIZE / 2, HANDLE_SIZE, HANDLE_SIZE)
       })
-
-      // Rotation handle above top center
-      const rotateX = x + rect.width / 2
-      const rotateY = y - ROTATE_HANDLE_OFFSET
-      ctx.beginPath()
-      ctx.arc(rotateX, rotateY, HANDLE_SIZE / 2 + 2, 0, Math.PI * 2)
-      ctx.fillStyle = COLOR_RECTANGLE_FILL
-      ctx.fill()
-      ctx.strokeStyle = COLOR_RECTANGLE_STROKE_HOVERED
-      ctx.lineWidth = STROKE_WIDTH
-      ctx.stroke()
-
-      // Draw line connecting top-center handle to rotation handle
-      ctx.beginPath()
-      ctx.moveTo(rotateX, y - HANDLE_SIZE / 2) // top-center handle
-      ctx.lineTo(rotateX, rotateY + HANDLE_SIZE / 2 + 2) // rotation handle
-      ctx.strokeStyle = COLOR_RECTANGLE_STROKE_HOVERED
-      ctx.lineWidth = STROKE_WIDTH
-      ctx.stroke()
     }
 
-    ctx.restore()
-  }
-
-  const drawPoint = (ctx: CanvasRenderingContext2D, point: DraggablePoint) => {
+    // Draw start point
     ctx.beginPath()
-    ctx.arc(point.center.x, point.center.y, POINT_RADIUS, 0, Math.PI * 2)
-    ctx.fillStyle = point.id === startPoint.id ? COLOR_START_POINT : COLOR_END_POINT
+    ctx.arc(startPoint.x, startPoint.y, SPECIAL_POINT_RADIUS, 0, Math.PI * 2)
+    ctx.fillStyle = hoveredSpecialPoint === 'start' ? '#10B981' : '#059669'
     ctx.fill()
-    ctx.strokeStyle = hoveredPointId === point.id ? COLOR_RECTANGLE_STROKE_HOVERED : COLOR_RECTANGLE_STROKE
-    ctx.lineWidth = STROKE_WIDTH
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 3
     ctx.stroke()
-  }
 
-  // Redraw when state changes
-  useEffect(() => {
-    draw()
-  }, [dimensions, draw])
+    // Draw "S" label
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 12px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('S', startPoint.x, startPoint.y)
 
-  const getCursorForHandle = (handle: string): CursorType => {
-    const cursorMap: { [key: string]: CursorType } = {
-      body: 'grab',
-      nw: 'pointer',
-      ne: 'pointer',
-      sw: 'pointer',
-      se: 'pointer',
-      top: 'pointer',
-      right: 'pointer',
-      bottom: 'pointer',
-      left: 'pointer',
-      rotate: 'pointer',
+    // Draw goal point
+    ctx.beginPath()
+    ctx.arc(goalPoint.x, goalPoint.y, SPECIAL_POINT_RADIUS, 0, Math.PI * 2)
+    ctx.fillStyle = hoveredSpecialPoint === 'goal' ? '#F59E0B' : '#D97706'
+    ctx.fill()
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 3
+    ctx.stroke()
+
+    // Draw "G" label
+    ctx.fillStyle = '#ffffff'
+    ctx.font = 'bold 12px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('G', goalPoint.x, goalPoint.y)
+
+    // Draw timeline step (if any)
+    if (currentStep >= 0 && currentStep < timeline.length) {
+      const step = timeline[currentStep]
+      if (step.vertices) {
+        // Draw vertices
+        step.vertices.forEach((v) => {
+          ctx.beginPath()
+          ctx.arc(v.x, v.y, 3, 0, Math.PI * 2)
+          ctx.fillStyle = '#FBBF24'
+          ctx.fill()
+        })
+      }
+      if (step.edges) {
+        // Draw edges
+        ctx.strokeStyle = '#FBBF2480'
+        ctx.lineWidth = 1
+        step.edges.forEach(([p1, p2]) => {
+          ctx.beginPath()
+          ctx.moveTo(p1.x, p1.y)
+          ctx.lineTo(p2.x, p2.y)
+          ctx.stroke()
+        })
+      }
     }
-    return cursorMap[handle] || 'default'
+  }, [
+    polygons,
+    currentPoints,
+    isComplete,
+    hoveredPoint,
+    hoveredPolygon,
+    mousePos,
+    mode,
+    startPoint,
+    goalPoint,
+    hoveredSpecialPoint,
+    currentStep,
+    live,
+  ])
+
+  // MARK: Handlers/Helpers
+
+  const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
+    const canvas = canvasRef.current
+    if (!canvas) return { x: 0, y: 0 }
+
+    const rect = canvas.getBoundingClientRect()
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    }
   }
 
-  const generateId = () => Math.random().toString(36)
+  const getSpecialPointAtPosition = (pos: Point): SpecialPoint => {
+    const startDist = Math.sqrt(Math.pow(pos.x - startPoint.x, 2) + Math.pow(pos.y - startPoint.y, 2))
+    if (startDist < SPECIAL_POINT_RADIUS + 5) return 'start'
 
+    const goalDist = Math.sqrt(Math.pow(pos.x - goalPoint.x, 2) + Math.pow(pos.y - goalPoint.y, 2))
+    if (goalDist < SPECIAL_POINT_RADIUS + 5) return 'goal'
+
+    return null
+  }
+
+  const getPointAtPosition = (pos: Point): HoveredPoint | null => {
+    for (let i = 0; i < polygons.length; i++) {
+      for (let j = 0; j < polygons[i].length; j++) {
+        const dx = pos.x - polygons[i][j].x
+        const dy = pos.y - polygons[i][j].y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < HOVER_RADIUS) {
+          return { polygonIdx: i, pointIdx: j }
+        }
+      }
+    }
+    return null
+  }
+
+  const isPointInPolygon = (pos: Point, poly: Point[]): boolean => {
+    if (poly.length < 3) return false
+
+    let inside = false
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i].x,
+        yi = poly[i].y
+      const xj = poly[j].x,
+        yj = poly[j].y
+
+      const intersect = yi > pos.y !== yj > pos.y && pos.x < ((xj - xi) * (pos.y - yi)) / (yj - yi) + xi
+      if (intersect) inside = !inside
+    }
+    return inside
+  }
+
+  const getPolygonAtPosition = (pos: Point): number | null => {
+    for (let i = polygons.length - 1; i >= 0; i--) {
+      if (isPointInPolygon(pos, polygons[i])) {
+        return i
+      }
+    }
+    return null
+  }
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getMousePos(e)
+    setHasDragged(false)
+
+    // Check for special points first
+    const specialPt = getSpecialPointAtPosition(pos)
+    if (specialPt) {
+      setDraggedSpecialPoint(specialPt)
+      const pt = specialPt === 'start' ? startPoint : goalPoint
+      setDragOffset({
+        x: pos.x - pt.x,
+        y: pos.y - pt.y,
+      })
+      setCursor('grabbing')
+      return
+    }
+
+    const point = getPointAtPosition(pos)
+
+    if (mode === 'edit') {
+      if (point !== null) {
+        setDraggedPoint(point)
+        setDragOffset({
+          x: pos.x - polygons[point.polygonIdx][point.pointIdx].x,
+          y: pos.y - polygons[point.polygonIdx][point.pointIdx].y,
+        })
+        setCursor('grabbing')
+      } else {
+        const polyIdx = getPolygonAtPosition(pos)
+        if (polyIdx !== null) {
+          setIsDraggingPolygon(polyIdx)
+          setDragOffset({ x: pos.x, y: pos.y })
+          setCursor('grabbing')
+        }
+      }
+    }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getMousePos(e)
+    setMousePos(pos)
+
+    if (draggedSpecialPoint !== null) {
+      setHasDragged(true)
+      const newPos = {
+        x: pos.x - dragOffset.x,
+        y: pos.y - dragOffset.y,
+      }
+      if (draggedSpecialPoint === 'start') {
+        setStartPoint(newPos)
+      } else {
+        setGoalPoint(newPos)
+      }
+    } else if (draggedPoint !== null) {
+      setHasDragged(true)
+      const newPolygons = [...polygons]
+      newPolygons[draggedPoint.polygonIdx][draggedPoint.pointIdx] = {
+        x: pos.x - dragOffset.x,
+        y: pos.y - dragOffset.y,
+      }
+      setPolygons(newPolygons)
+    } else if (isDraggingPolygon !== false) {
+      setHasDragged(true)
+      const dx = pos.x - dragOffset.x
+      const dy = pos.y - dragOffset.y
+      const newPolygons = [...polygons]
+      newPolygons[isDraggingPolygon] = newPolygons[isDraggingPolygon].map((pt) => ({
+        x: pt.x + dx,
+        y: pt.y + dy,
+      }))
+      setPolygons(newPolygons)
+      setDragOffset(pos)
+    } else {
+      // Update hover states
+      const specialPt = getSpecialPointAtPosition(pos)
+      setHoveredSpecialPoint(specialPt)
+
+      if (specialPt) {
+        setCursor('grab')
+        setHoveredPoint(null)
+        setHoveredPolygon(null)
+      } else {
+        const point = getPointAtPosition(pos)
+        setHoveredPoint(point)
+
+        if (!point) {
+          const polyIdx = getPolygonAtPosition(pos)
+          if (polyIdx !== null) {
+            setHoveredPolygon({ polygonIdx: polyIdx, type: 'body' })
+            setCursor(mode === 'edit' ? 'grab' : 'pointer')
+          } else {
+            setHoveredPolygon(null)
+            setCursor(isComplete ? 'crosshair' : 'crosshair')
+          }
+        } else {
+          setHoveredPolygon(null)
+          setCursor(mode === 'edit' ? 'grab' : 'pointer')
+        }
+      }
+    }
+  }
+
+  const handleMouseUp = () => {
+    setDraggedPoint(null)
+    setDraggedSpecialPoint(null)
+    setIsDraggingPolygon(false)
+    if (hoveredPoint || hoveredPolygon || hoveredSpecialPoint) {
+      setCursor('grab')
+    } else {
+      setCursor(isComplete ? 'crosshair' : 'crosshair')
+    }
+  }
+
+  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Prevent click if user was dragging
+    if (hasDragged) return
+
+    const pos = getMousePos(e)
+
+    // Don't process clicks on special points
+    if (getSpecialPointAtPosition(pos)) return
+
+    if (mode === 'delete') {
+      const point = getPointAtPosition(pos)
+      if (point !== null) {
+        const newPolygons = [...polygons]
+        newPolygons[point.polygonIdx].splice(point.pointIdx, 1)
+        if (newPolygons[point.polygonIdx].length < 3) {
+          newPolygons.splice(point.polygonIdx, 1)
+        }
+        setPolygons(newPolygons)
+        return
+      }
+
+      const polyIdx = getPolygonAtPosition(pos)
+      if (polyIdx !== null) {
+        const newPolygons = polygons.filter((_, idx) => idx !== polyIdx)
+        setPolygons(newPolygons)
+        return
+      }
+    }
+
+    if (mode === 'edit' && isComplete) {
+      // Check if clicking first point to close current polygon
+      if (!isComplete && currentPoints.length > 2) {
+        const dx = pos.x - currentPoints[0].x
+        const dy = pos.y - currentPoints[0].y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < HOVER_RADIUS) {
+          setPolygons([...polygons, currentPoints])
+          setCurrentPoints([])
+          setIsComplete(true)
+          return
+        }
+      }
+
+      // Start new polygon
+      setCurrentPoints([pos])
+      setIsComplete(false)
+    } else if (mode === 'edit' && !isComplete) {
+      // Check if clicking first point to close
+      if (currentPoints.length > 2) {
+        const dx = pos.x - currentPoints[0].x
+        const dy = pos.y - currentPoints[0].y
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < HOVER_RADIUS) {
+          setPolygons([...polygons, currentPoints])
+          setCurrentPoints([])
+          setIsComplete(true)
+          return
+        }
+      }
+
+      // Add new point
+      setCurrentPoints([...currentPoints, pos])
+    }
+  }
+
+  const runAlgorithm = () => {
+    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons);
+    setTimeline(steps);
+    setCurrentStep(live ? steps.length - 1 : 0);
+  }
+
+  // MARK: JSX
   return (
-    <div className="w-full h-full" ref={containerRef}>
-      <canvas
-        ref={canvasRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        style={{ cursor }}
-      />
+    <div className="w-full h-full flex flex-col items-center gap-2 p-2">
+      {/* Header */}
+      <div className="w-full flex items-center justify-between gap-2 bg-white px-4 py-2 rounded-lg border">
+        <p>
+          <b>Motion Planning Visualizer</b>
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setMode('edit')}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+          >
+            <MdEdit />
+          </button>
+          <button
+            onClick={() => setMode('delete')}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
+          >
+            <MdDelete />
+          </button>
+        </div>
+        <div className="flex gap-2 items-center">
+          <button className="px-3 py-1.5 rounded cursor-pointer bg-gray-200 flex flex-row items-center gap-2" onClick={() => setLive(!live)}>
+            Live
+            <div className={`flex p-1 w-8 rounded-full ${live ? "bg-blue-700" : "bg-gray-400"}`}>
+              <span className={`w-2.5 h-2.5 rounded-full bg-white duration-150 ${live && "ml-3.5"}`} />
+            </div>
+          </button>
+          <select
+            className="px-2 py-1.5 rounded bg-gray-200"
+            name="algorithm"
+            id=""
+            value={algorithm}
+            onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
+          >
+            <option value="visibility">Visibility Graph</option>
+            <option value="voronoi">Voronoi</option>
+          </select>
+          {!live &&
+            <button className="px-3 py-1.5 rounded cursor-pointer bg-blue-700 text-white" onClick={() => runAlgorithm()}>
+              Generate
+            </button>
+          }
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div className="text-gray-600">
+        {mode === 'edit'
+          ? isComplete
+            ? polygons.length == 0
+              ? 'Hint: Click to start drawing a polygon'
+              : 'Hint: Draw a new polygon or edit the objects by dragging them around'
+            : 'Hint: Click to add points, click the first point to close polygon'
+          : 'Hint: Click a polygon or vertex to delete it'}
+      </div>
+
+      {/* Canvas */}
+      <div ref={containerRef} className="w-full flex-1 min-h-0">
+        <canvas
+          ref={canvasRef}
+          className="bg-white border rounded-lg w-full h-full"
+          style={{ cursor }}
+          width={canvasSize.width}
+          height={canvasSize.height}
+          onClick={handleClick}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        />
+      </div>
+
+      {currentStep >= 0 && currentStep < timeline.length && (
+        <p className="text-gray-600 italic">{timeline[currentStep].message}</p>
+      )}
+
+      {/* Timeline */}
+      <div className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-2 ${timeline.length === 0 || live ? 'opacity-40 pointer-events-none' : ''}`}>
+        <button className="text-3xl cursor-pointer" onClick={() => setIsPlaying(!isPlaying)}>
+          {isPlaying ? <MdPause /> : <MdPlayArrow />}
+        </button>
+        <input className="w-full" type="range" value={currentStep} onChange={(e) => setCurrentStep(parseInt(e.target.value))} min="0" max={timeline.length - 1} />
+        {timeline.length > 0 && <p>({currentStep}/{timeline.length - 1})</p>}
+      </div>
     </div>
   )
 }

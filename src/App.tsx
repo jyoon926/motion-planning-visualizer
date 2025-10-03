@@ -1,12 +1,14 @@
 import './App.css'
 import CanvasComponent from './components/CanvasComponent'
-import HeaderComponent from './components/HeaderComponent'
+import SidePanelComponent from './components/SidePanelComponent'
 
 function App() {
   return (
-    <div className="absolute inset-0 flex flex-col items-center">
-      <HeaderComponent />
-      <CanvasComponent />
+    <div className="absolute inset-0 flex flex-row items-center bg-gray-200">
+      <div className="w-full h-full flex flex-col">
+        <CanvasComponent />
+      </div>
+      <SidePanelComponent />
     </div>
   )
 }
