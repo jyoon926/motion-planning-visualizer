@@ -1,5 +1,9 @@
 # Interactive Motion Planning Visualizer
 
+## Description
+
+This is an interactive web-based pedagogical aid that illustrates shortest-path computation through visibility graphs and maximum-clearance path planning with generalized Voronoi diagrams. The application allows users to define polygonal obstacles, manipulate start and end points, and visualize both motion-planning algorithms to examine their computation and traversal of the environment.
+
 ## Getting Started
 
 1. Install Node.js
