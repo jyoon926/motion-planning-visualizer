@@ -10,3 +10,21 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-400, currentColor);
+  }
+}
+
+html {
+  font-size: 14px;
+}
+
+input[type='range'] {
+  accent-color: #4b5563;
+}

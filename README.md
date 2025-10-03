@@ -56,6 +56,4 @@
 src/
 ├─ algorithms/      # Pathfinding & computational geometry logic
 ├─ components/      # React components for UI & visualization
-├─ hooks/           # Custom React hooks for state & path computation
-├─ utils/           # Types and other useful utils
 ```
