@@ -97,10 +97,10 @@ function CanvasComponent() {
   // Run algorithm when polygons, start, goal, or algorithm changes
   useEffect(() => {
     if (live) {
-      runAlgorithm();
+      runAlgorithm()
     } else {
-      setTimeline([]);
-      setCurrentStep(0);
+      setTimeline([])
+      setCurrentStep(0)
     }
   }, [polygons, startPoint, goalPoint, algorithm, live])
 
@@ -533,9 +533,9 @@ function CanvasComponent() {
   }
 
   const runAlgorithm = () => {
-    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons);
-    setTimeline(steps);
-    setCurrentStep(live ? steps.length - 1 : 0);
+    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons)
+    setTimeline(steps)
+    setCurrentStep(live ? steps.length - 1 : 0)
   }
 
   // MARK: JSX
@@ -549,24 +549,29 @@ function CanvasComponent() {
         <div className="flex gap-2">
           <button
             onClick={() => setMode('edit')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
-              }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
+              mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
+            }`}
           >
             <MdEdit />
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
-              }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
+              mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
+            }`}
           >
             <MdDelete />
           </button>
         </div>
         <div className="flex gap-2 items-center">
-          <button className="px-3 py-1.5 rounded cursor-pointer bg-gray-200 flex flex-row items-center gap-2" onClick={() => setLive(!live)}>
+          <button
+            className="px-3 py-1.5 rounded cursor-pointer bg-gray-200 flex flex-row items-center gap-2"
+            onClick={() => setLive(!live)}
+          >
             Live
-            <div className={`flex p-1 w-8 rounded-full ${live ? "bg-blue-700" : "bg-gray-400"}`}>
-              <span className={`w-2.5 h-2.5 rounded-full bg-white duration-150 ${live && "ml-3.5"}`} />
+            <div className={`flex p-1 w-8 rounded-full ${live ? 'bg-blue-700' : 'bg-gray-400'}`}>
+              <span className={`w-2.5 h-2.5 rounded-full bg-white duration-150 ${live && 'ml-3.5'}`} />
             </div>
           </button>
           <select
@@ -579,11 +584,14 @@ function CanvasComponent() {
             <option value="visibility">Visibility Graph</option>
             <option value="voronoi">Voronoi</option>
           </select>
-          {!live &&
-            <button className="px-3 py-1.5 rounded cursor-pointer bg-blue-700 text-white" onClick={() => runAlgorithm()}>
+          {!live && (
+            <button
+              className="px-3 py-1.5 rounded cursor-pointer bg-blue-700 text-white"
+              onClick={() => runAlgorithm()}
+            >
               Generate
             </button>
-          }
+          )}
         </div>
       </div>
 
@@ -619,12 +627,25 @@ function CanvasComponent() {
       )}
 
       {/* Timeline */}
-      <div className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-2 ${timeline.length === 0 || live ? 'opacity-40 pointer-events-none' : ''}`}>
+      <div
+        className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-2 ${timeline.length === 0 || live ? 'opacity-40 pointer-events-none' : ''}`}
+      >
         <button className="text-3xl cursor-pointer" onClick={() => setIsPlaying(!isPlaying)}>
           {isPlaying ? <MdPause /> : <MdPlayArrow />}
         </button>
-        <input className="w-full" type="range" value={currentStep} onChange={(e) => setCurrentStep(parseInt(e.target.value))} min="0" max={timeline.length - 1} />
-        {timeline.length > 0 && <p>({currentStep}/{timeline.length - 1})</p>}
+        <input
+          className="w-full"
+          type="range"
+          value={currentStep}
+          onChange={(e) => setCurrentStep(parseInt(e.target.value))}
+          min="0"
+          max={timeline.length - 1}
+        />
+        {timeline.length > 0 && (
+          <p>
+            ({currentStep}/{timeline.length - 1})
+          </p>
+        )}
       </div>
     </div>
   )
