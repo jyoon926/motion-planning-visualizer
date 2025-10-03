@@ -4,9 +4,10 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
   const timeline: AlgorithmStep[] = []
   const vertices: Point[] = []
   const edges: [Point, Point][] = []
+  const path: Point[] = []
 
   const update = (message: string) => {
-    timeline.push({ message, vertices: [...vertices], edges: [...edges] })
+    timeline.push({ message, vertices: [...vertices], edges: [...edges], path: [...path] })
   }
 
   update('Starting visibility graph computation...')
@@ -32,6 +33,9 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
       }
     }
   }
+
+  path.push(start, goal)
+  update('Adding path...')
 
   update('Done!')
 

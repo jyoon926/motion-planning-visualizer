@@ -221,6 +221,42 @@ function CanvasComponent() {
       })
     }
 
+    // Draw timeline step (if any)
+    if (currentStep >= 0 && currentStep < timeline.length) {
+      const step = timeline[currentStep]
+      if (step.vertices) {
+        // Draw vertices
+        step.vertices.forEach((v) => {
+          ctx.beginPath()
+          ctx.arc(v.x, v.y, 3, 0, Math.PI * 2)
+          ctx.fillStyle = '#FBBF24'
+          ctx.fill()
+        })
+      }
+      if (step.edges) {
+        // Draw edges
+        ctx.strokeStyle = '#FBBF2480'
+        ctx.lineWidth = 1
+        step.edges.forEach(([p1, p2]) => {
+          ctx.beginPath()
+          ctx.moveTo(p1.x, p1.y)
+          ctx.lineTo(p2.x, p2.y)
+          ctx.stroke()
+        })
+      }
+      if (step.path && step.path.length > 1) {
+        // Draw path
+        ctx.strokeStyle = '#1447e6'
+        ctx.lineWidth = 4
+        ctx.beginPath()
+        ctx.moveTo(step.path[0].x, step.path[0].y)
+        for (let i = 1; i < step.path.length; i++) {
+          ctx.lineTo(step.path[i].x, step.path[i].y)
+        }
+        ctx.stroke()
+      }
+    }
+
     // Draw start point
     ctx.beginPath()
     ctx.arc(startPoint.x, startPoint.y, SPECIAL_POINT_RADIUS, 0, Math.PI * 2)
@@ -252,31 +288,6 @@ function CanvasComponent() {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText('G', goalPoint.x, goalPoint.y)
-
-    // Draw timeline step (if any)
-    if (currentStep >= 0 && currentStep < timeline.length) {
-      const step = timeline[currentStep]
-      if (step.vertices) {
-        // Draw vertices
-        step.vertices.forEach((v) => {
-          ctx.beginPath()
-          ctx.arc(v.x, v.y, 3, 0, Math.PI * 2)
-          ctx.fillStyle = '#FBBF24'
-          ctx.fill()
-        })
-      }
-      if (step.edges) {
-        // Draw edges
-        ctx.strokeStyle = '#FBBF2480'
-        ctx.lineWidth = 1
-        step.edges.forEach(([p1, p2]) => {
-          ctx.beginPath()
-          ctx.moveTo(p1.x, p1.y)
-          ctx.lineTo(p2.x, p2.y)
-          ctx.stroke()
-        })
-      }
-    }
   }, [
     polygons,
     currentPoints,
@@ -539,6 +550,13 @@ function CanvasComponent() {
     setCurrentStep(live ? steps.length - 1 : 0)
   }
 
+  const handlePlayPause = () => {
+    if (!isPlaying && currentStep >= timeline.length - 1) {
+      setCurrentStep(0)
+    }
+    setIsPlaying(!isPlaying)
+  }
+
   // MARK: JSX
   return (
     <div className="w-full h-full flex flex-col items-center gap-2 p-2">
@@ -623,15 +641,15 @@ function CanvasComponent() {
         />
       </div>
 
-      {currentStep >= 0 && currentStep < timeline.length && (
+      {currentStep >= 0 && currentStep < timeline.length && !live && (
         <p className="text-gray-600 italic">{timeline[currentStep].message}</p>
       )}
 
       {/* Timeline */}
       <div
-        className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-2 ${timeline.length === 0 || live ? 'opacity-40 pointer-events-none' : ''}`}
+        className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-2 ${timeline.length === 0 || live ? 'opacity-20 pointer-events-none' : ''}`}
       >
-        <button className="text-3xl cursor-pointer" onClick={() => setIsPlaying(!isPlaying)}>
+        <button className="text-3xl cursor-pointer" onClick={handlePlayPause}>
           {isPlaying ? <MdPause /> : <MdPlayArrow />}
         </button>
         <input
