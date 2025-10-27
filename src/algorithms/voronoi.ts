@@ -1,9 +1,9 @@
 import type { AlgorithmStep, Point } from '../components/CanvasComponent'
 
 type SamplePoint = {
-  startPoint: Point,
-  dx: number,
-  dy: number,
+  startPoint: Point
+  dx: number
+  dy: number
   endPoint: Point
 }
 
@@ -24,24 +24,24 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
   // Test Point for debug
   const debugPoint: Point = {
     x: 300,
-    y: 300
+    y: 300,
   }
 
   // Set boundary limit to where lines can be drawn
   const margin = 100
   let allPoints = [start, goal, ...obstacles.flat()]
-  let minX = Math.min(...allPoints.map(p => p.x)) - margin;
-  let maxX = Math.max(...allPoints.map(p => p.x)) + margin;
-  let minY = Math.min(...allPoints.map(p => p.y)) - margin;
-  let maxY = Math.max(...allPoints.map(p => p.y)) + margin;
+  let minX = Math.min(...allPoints.map((p) => p.x)) - margin
+  let maxX = Math.max(...allPoints.map((p) => p.x)) + margin
+  let minY = Math.min(...allPoints.map((p) => p.y)) - margin
+  let maxY = Math.max(...allPoints.map((p) => p.y)) + margin
   let boundaryData = [minX, maxX, minY, maxY]
 
   // Given the obstacles, find all existing edges
   const obstacleEdges: {
-    a: Point,
-    b: Point,
-    samplePoints: SamplePoint[],
-    rayDirection: number    // 0 is positive, 1 is negative
+    a: Point
+    b: Point
+    samplePoints: SamplePoint[]
+    rayDirection: number // 0 is positive, 1 is negative
   }[] = []
 
   for (let oi = 0; oi < obstacles.length; oi++) {
@@ -53,12 +53,12 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
       const b = polygon[(i + 1) % polygon.length]
       const direction = getRayDirection(polygonWinding, a, b)
       obstacleEdges.push({ a, b, samplePoints: [], rayDirection: direction })
-      update("Finding obstacle edges...")
+      update('Finding obstacle edges...')
     }
   }
 
   // Distance between sampled points on edges
-  const sampleSpacing = 5;
+  const sampleSpacing = 5
 
   // Get all sampled points from certain edge
   for (let i = 0; i < obstacleEdges.length; i++) {
@@ -69,52 +69,53 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
     const dy = currEdge.b.y - currEdge.a.y
 
     // The two options for direction of the rays
-    const p1 = { x: -dy, y: dx }; // 90° one way
-    const p2 = { x: dy,  y: -dx }; // 90° the other way
+    const p1 = { x: -dy, y: dx } // 90° one way
+    const p2 = { x: dy, y: -dx } // 90° the other way
 
     for (let j = 0; j < samplePoints.length; j++) {
       const currSamplePoint = samplePoints[j]
       const wantUp = currEdge.rayDirection === 0
 
       // Choose the perpendicular whose y matches the desired sign
-      let chosen = p1;
+      let chosen = p1
       if (wantUp) {
-        if (p1.y > 0) chosen = p1;
-        else if (p2.y > 0) chosen = p2;
+        if (p1.y > 0) chosen = p1
+        else if (p2.y > 0) chosen = p2
         else {
-          chosen = p2;
+          chosen = p2
         }
-      } else { // want down
-        if (p1.y < 0) chosen = p1;
-        else if (p2.y < 0) chosen = p2;
+      } else {
+        // want down
+        if (p1.y < 0) chosen = p1
+        else if (p2.y < 0) chosen = p2
         else {
-          chosen = p1;
+          chosen = p1
         }
       }
 
       // Normalize and scale to ray length
-      const len = Math.hypot(chosen.x, chosen.y);
+      const len = Math.hypot(chosen.x, chosen.y)
 
       // Unit vector
-      const ux = chosen.x / len;
-      const uy = chosen.y / len;
+      const ux = chosen.x / len
+      const uy = chosen.y / len
 
       const rayEnd: Point = {
         x: currSamplePoint.x + ux * sampleSpacing,
         y: currSamplePoint.y + uy * sampleSpacing,
-      };
+      }
 
       let newSamplePoint: SamplePoint = {
         startPoint: currSamplePoint,
         dx: ux,
         dy: uy,
-        endPoint: rayEnd
+        endPoint: rayEnd,
       }
       currEdge.samplePoints.push(newSamplePoint)
 
       vertices.push(newSamplePoint.startPoint)
-      edges.push([newSamplePoint.startPoint, newSamplePoint.endPoint]);
-      update("Creating sample points and respective rays...");
+      edges.push([newSamplePoint.startPoint, newSamplePoint.endPoint])
+      update('Creating sample points and respective rays...')
     }
   }
 
@@ -146,7 +147,7 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
   for (let i = 0; i < returnData[0].length; i++) {
     boundaryPoints.push(returnData[0][i])
     vertices.push(returnData[0][i])
-    update("Finding where rays intersect...")
+    update('Finding where rays intersect...')
   }
   for (let i = 0; i < returnData[1].length; i++) {
     stillMovingRays.splice(returnData[1][i], 1)
@@ -154,11 +155,11 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
 
   // Now, repeat this effect after increasing the size of each ray by sampleSpacing
 
-  while(stillMovingRays.length > 0) {
+  while (stillMovingRays.length > 0) {
     for (let i = 0; i < stillMovingRays.length; i++) {
       let currRay = stillMovingRays[i]
-      currRay.endPoint.x += (currRay.dx * sampleSpacing)
-      currRay.endPoint.y += (currRay.dy * sampleSpacing)
+      currRay.endPoint.x += currRay.dx * sampleSpacing
+      currRay.endPoint.y += currRay.dy * sampleSpacing
       stillMovingRays[i] = currRay
     }
 
@@ -166,7 +167,7 @@ function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): Algori
     for (let i = 0; i < returnData[0].length; i++) {
       boundaryPoints.push(returnData[0][i])
       vertices.push(returnData[0][i])
-      update("Finding where rays intersect...")
+      update('Finding where rays intersect...')
     }
     for (let i = 0; i < returnData[1].length; i++) {
       stillMovingRays.splice(returnData[1][i], 1)
@@ -182,11 +183,11 @@ function sampleEdge(a: Point, b: Point, step: number): Point[] {
   const n = Math.max(2, Math.ceil(length / step))
   const points: Point[] = []
 
-   for (let i = 0; i <= n; i++) {
+  for (let i = 0; i <= n; i++) {
     const t = i / n
     points.push({
       x: a.x + t * (b.x - a.x),
-      y: a.y + t * (b.y - a.y)
+      y: a.y + t * (b.y - a.y),
     })
   }
   return points
@@ -194,25 +195,24 @@ function sampleEdge(a: Point, b: Point, step: number): Point[] {
 
 // Get the winding direction of a polygon (CW or CCW)
 function getPolygonWinding(points: Point[]): string {
-  let area = 0;
+  let area = 0
   for (let i = 0; i < points.length; i++) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    area += (a.x * b.y - b.x * a.y);
+    const a = points[i]
+    const b = points[(i + 1) % points.length]
+    area += a.x * b.y - b.x * a.y
   }
-  if (area > 0) return "CCW"
-  else return "CW"
+  if (area > 0) return 'CCW'
+  else return 'CW'
 }
 
 // Get if a ray off the edge of an object should be in the positive or negative y direction
 // If perfectly vertical line, treat moving right as postive and left as negative
 function getRayDirection(winding: string, a: Point, b: Point): number {
   const change_x = b.x - a.x
-  if (winding === "CCW") {
+  if (winding === 'CCW') {
     if (change_x > 0) return 1
     else return 0
-  }
-  else {
+  } else {
     if (change_x > 0) return 0
     else return 1
   }
@@ -220,7 +220,11 @@ function getRayDirection(winding: string, a: Point, b: Point): number {
 
 // Returns an array of arrays, where the first sub-array is an array of all the intersect points
 // and the second is an array of all the ray indexes that can be removed from stillMovingRays
-function checkIntersections(allRays: SamplePoint[], raysToCheck: SamplePoint[], boundaryData: number[]): [Point[], number[]] {
+function checkIntersections(
+  allRays: SamplePoint[],
+  raysToCheck: SamplePoint[],
+  boundaryData: number[]
+): [Point[], number[]] {
   let foundIntersections: Point[] = []
   let indexesToRemove: number[] = []
 
@@ -228,10 +232,12 @@ function checkIntersections(allRays: SamplePoint[], raysToCheck: SamplePoint[], 
     const currRay = raysToCheck[i]
 
     // Check if ray has grown outisde boundary
-    if (currRay.endPoint.x < boundaryData[0] ||
-        currRay.endPoint.x > boundaryData[1] ||
-        currRay.endPoint.y < boundaryData[2] ||
-        currRay.endPoint.y > boundaryData[3]) {
+    if (
+      currRay.endPoint.x < boundaryData[0] ||
+      currRay.endPoint.x > boundaryData[1] ||
+      currRay.endPoint.y < boundaryData[2] ||
+      currRay.endPoint.y > boundaryData[3]
+    ) {
       currRay.endPoint.x = Math.min(Math.max(currRay.endPoint.x, boundaryData[0]), boundaryData[1])
       currRay.endPoint.y = Math.min(Math.max(currRay.endPoint.y, boundaryData[2]), boundaryData[3])
       foundIntersections.push(currRay.endPoint)
@@ -241,11 +247,13 @@ function checkIntersections(allRays: SamplePoint[], raysToCheck: SamplePoint[], 
     for (let j = 0; j < allRays.length; j++) {
       const possibleIntersectRay = allRays[j]
       // Skip if the ray to check is the same as the current ray
-      if (currRay.startPoint.x === possibleIntersectRay.startPoint.x &&
-          currRay.startPoint.y === possibleIntersectRay.startPoint.y) {
+      if (
+        currRay.startPoint.x === possibleIntersectRay.startPoint.x &&
+        currRay.startPoint.y === possibleIntersectRay.startPoint.y
+      ) {
         continue
       }
-      
+
       // Check for intersection of the rays
       // intersectReturn[0] is True if they intersect
       // intersectReturn[1] is the Point where they intersect if they do
@@ -268,8 +276,8 @@ function intersects(lineOne: SamplePoint, lineTwo: SamplePoint): any {
   const q = lineTwo.startPoint
   const q2 = lineTwo.endPoint
 
-  const r = {x: p2.x - p.x, y: p2.y - p.y}
-  const s = {x: q2.x - q.x, y: q2.y - q.y}
+  const r = { x: p2.x - p.x, y: p2.y - p.y }
+  const s = { x: q2.x - q.x, y: q2.y - q.y }
 
   const denom = r.x * s.y - r.y * s.x
 
@@ -284,13 +292,12 @@ function intersects(lineOne: SamplePoint, lineTwo: SamplePoint): any {
     const intersection: Point = {
       x: p.x + t * r.x,
       y: p.y + t * r.y,
-    };
+    }
     return [true, intersection]
   }
 
   // Intersection is outside of the segments
   return [false]
 }
-
 
 export { computeVoronoi }
