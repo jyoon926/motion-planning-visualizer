@@ -7,7 +7,7 @@ function SidePanelComponent() {
         <b>Information</b>
       </div>
     </div>
-  )
+  );
 }
 
-export default SidePanelComponent
+export default SidePanelComponent;

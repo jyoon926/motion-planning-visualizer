@@ -1,6 +1,6 @@
-import './App.css'
-import CanvasComponent from './components/CanvasComponent'
-import SidePanelComponent from './components/SidePanelComponent'
+import './App.css';
+import CanvasComponent from './components/CanvasComponent';
+import SidePanelComponent from './components/SidePanelComponent';
 
 function App() {
   return (
@@ -10,7 +10,7 @@ function App() {
       </div>
       <SidePanelComponent />
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

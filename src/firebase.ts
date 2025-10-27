@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app'
-import { getAnalytics } from 'firebase/analytics'
+import { initializeApp } from 'firebase/app';
+import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_REACT_APP_FIREBASE_API_KEY,
@@ -9,7 +9,7 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_REACT_APP_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_REACT_APP_FIREBASE_MEASUREMENT_ID,
-}
+};
 
-export const app = initializeApp(firebaseConfig)
-export const analytics = getAnalytics(app)
+export const app = initializeApp(firebaseConfig);
+export const analytics = getAnalytics(app);
