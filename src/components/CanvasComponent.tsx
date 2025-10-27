@@ -66,8 +66,9 @@ function CanvasComponent() {
   const [algorithm, setAlgorithm] = useState<AlgorithmType>('visibility');
   const [timeline, setTimeline] = useState<AlgorithmStep[]>([]);
   const [currentStep, setCurrentStep] = useState<number>(-1);
-  const [live, setLive] = useState<boolean>(true);
+  // const [live, setLive] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [fps, setFps] = useState<number>(10); // 10 FPS default
   // Special points
   const [startPoint, setStartPoint] = useState<Point>({ x: 100, y: 200 });
   const [goalPoint, setGoalPoint] = useState<Point>({ x: 300, y: 200 });
@@ -97,18 +98,13 @@ function CanvasComponent() {
   const runAlgorithm = useCallback(() => {
     const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons);
     setTimeline(steps);
-    setCurrentStep(live ? steps.length - 1 : 0);
-  }, [algorithm, startPoint, goalPoint, polygons, live]);
+    setCurrentStep(steps.length - 1);
+  }, [algorithm, startPoint, goalPoint, polygons]);
 
   // Run algorithm when polygons, start, goal, or algorithm changes
   useEffect(() => {
-    if (live) {
-      runAlgorithm();
-    } else {
-      runAlgorithm();
-      setCurrentStep(0);
-    }
-  }, [polygons, startPoint, goalPoint, algorithm, live, runAlgorithm]);
+    runAlgorithm();
+  }, [polygons, startPoint, goalPoint, algorithm, runAlgorithm]);
 
   // Handle play/pause of timeline
   useEffect(() => {
@@ -129,10 +125,10 @@ function CanvasComponent() {
           return prev;
         }
       });
-    }, 100);
+    }, 1000 / fps); // Convert FPS to milliseconds interval
 
     return () => clearInterval(interval);
-  }, [isPlaying, currentStep, timeline]);
+  }, [isPlaying, currentStep, timeline, fps]);
 
   // MARK: Draw canvas
   useEffect(() => {
@@ -306,7 +302,6 @@ function CanvasComponent() {
     goalPoint,
     hoveredSpecialPoint,
     currentStep,
-    live,
     timeline,
   ]);
 
@@ -584,33 +579,17 @@ function CanvasComponent() {
           </button>
         </div>
         <div className="flex gap-2 items-center">
-          <button
-            className="px-3 py-1.5 rounded cursor-pointer bg-gray-200 flex flex-row items-center gap-2"
-            onClick={() => setLive(!live)}
-          >
-            Live
-            <div className={`flex p-1 w-8 rounded-full ${live ? 'bg-blue-700' : 'bg-gray-400'}`}>
-              <span className={`w-2.5 h-2.5 rounded-full bg-white duration-150 ${live && 'ml-3.5'}`} />
-            </div>
-          </button>
+          <label htmlFor="algorithm">Algorithm:</label>
           <select
             className="px-2 py-1.5 rounded bg-gray-200"
             name="algorithm"
-            id=""
+            id="algorithm"
             value={algorithm}
             onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
           >
             <option value="visibility">Visibility Graph</option>
             <option value="voronoi">Voronoi</option>
           </select>
-          {!live && (
-            <button
-              className="px-3 py-1.5 rounded cursor-pointer bg-blue-700 text-white"
-              onClick={() => runAlgorithm()}
-            >
-              Generate
-            </button>
-          )}
         </div>
       </div>
 
@@ -641,30 +620,62 @@ function CanvasComponent() {
         />
       </div>
 
-      {currentStep >= 0 && currentStep < timeline.length && !live && (
+      {currentStep >= 0 && currentStep < timeline.length && (
         <p className="text-gray-600 italic">{timeline[currentStep].message}</p>
       )}
 
       {/* Timeline */}
       <div
-        className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-2 ${timeline.length === 0 || live ? 'opacity-20 pointer-events-none' : ''}`}
+        className={`w-full px-3 py-2 bg-white border rounded-lg flex flex-row items-center gap-5 ${timeline.length === 0 ? 'opacity-20 pointer-events-none' : ''}`}
       >
-        <button className="text-3xl cursor-pointer" onClick={handlePlayPause}>
-          {isPlaying ? <MdPause /> : <MdPlayArrow />}
+        <button
+          className="flex flex-row items-center cursor-pointer bg-blue-700 text-white px-3 py-1.5 rounded gap-2"
+          onClick={handlePlayPause}
+        >
+          {isPlaying ? (
+            <>
+              <span className="text-lg text-nowrap">Pause Algorithm</span>
+              <span className="text-2xl">
+                <MdPause />
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-lg text-nowrap">Run Algorithm</span>
+              <span className="text-2xl">
+                <MdPlayArrow />
+              </span>
+            </>
+          )}
         </button>
-        <input
-          className="w-full"
-          type="range"
-          value={currentStep}
-          onChange={(e) => setCurrentStep(parseInt(e.target.value))}
-          min="0"
-          max={timeline.length - 1}
-        />
-        {timeline.length > 0 && (
-          <p>
-            ({currentStep}/{timeline.length - 1})
-          </p>
-        )}
+        <div className="w-full flex flex-row items-center gap-2">
+          <input
+            className="w-full"
+            type="range"
+            value={currentStep}
+            onChange={(e) => setCurrentStep(parseInt(e.target.value))}
+            min="0"
+            max={timeline.length - 1}
+          />
+          {timeline.length > 0 && (
+            <p className="text-nowrap">
+              ({currentStep}/{timeline.length - 1})
+            </p>
+          )}
+        </div>
+        <div className="flex flex-row items-center gap-2">
+          <span>Speed:</span>
+          <input
+            type="range"
+            min="1"
+            max="30"
+            step="1"
+            value={fps}
+            onChange={(e) => setFps(parseInt(e.target.value))}
+            className="w-32"
+          />
+          <span className="text-nowrap">{fps} FPS</span>
+        </div>
       </div>
     </div>
   );
