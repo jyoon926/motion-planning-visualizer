@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { computeVisibilityGraph } from '../algorithms/visibilityGraph';
+import { computeVisibilityGraph } from '../algorithms/visibilityGraphNaive';
 import { computeVoronoi } from '../algorithms/voronoi';
 import { MdDelete, MdEdit, MdPause, MdPlayArrow } from 'react-icons/md';
 
@@ -105,7 +105,7 @@ function CanvasComponent() {
     if (live) {
       runAlgorithm();
     } else {
-      setTimeline([]);
+      runAlgorithm();
       setCurrentStep(0);
     }
   }, [polygons, startPoint, goalPoint, algorithm, live, runAlgorithm]);
