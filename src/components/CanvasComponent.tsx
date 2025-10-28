@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { computeVisibilityGraph } from '../algorithms/visibilityGraphNaive';
+import { computeVisibilityGraph } from '../algorithms/visibilityGraph';
 import { computeVoronoi } from '../algorithms/voronoi';
 import { MdDelete, MdEdit, MdPause, MdPlayArrow } from 'react-icons/md';
 
