@@ -1,11 +1,11 @@
 import type { AlgorithmStep, Point } from '../components/CanvasComponent';
 
 interface StarPoint {
-  pnt: Point,
-  f: number,
-  g: number, 
-  h: number,
-  parent: Point
+  pnt: Point;
+  f: number;
+  g: number; 
+  h: number;
+  parent: Point;
 }
 
 function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][]): AlgorithmStep[] {
@@ -21,7 +21,7 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
   update('Starting visibility graph computation...');
 
   // Create visibility graph
-  let vgraph: Map<string, Point[]> = new Map<string, Point[]>()
+  const vgraph: Map<string, Point[]> = new Map<string, Point[]>();
 
   const ccw = (A: Point, B: Point, C: Point): boolean => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
 
@@ -82,11 +82,11 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
   }
 
   // Calculate shortest path with A*
-  for (const p of astar(start, goal, vgraph)){
-    console.log(`Pushing (${p.x}, ${p.y}) to path`)
-    path.push(p)
+  for (const p of astar(start, goal, vgraph)) {
+    console.log(`Pushing (${p.x}, ${p.y}) to path`);
+    path.push(p);
   }
-  update('Adding path...')
+  update('Adding path...');
 
   update('Done!');
 
@@ -195,7 +195,6 @@ function constructPath (current: StarPoint, closed: Map<String, StarPoint>) {
     path.push(curr.pnt);
     console.log("constructPath: pushed curr onto path", curr.pnt);
     if (getKeyString(curr.parent) === getKeyString(curr.pnt)) {
-      console.log("hit start node: ", curr)
       return path;}
     // set current = current.parent
     let temp = closed.get(getKeyString(curr.parent));
