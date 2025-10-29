@@ -49,6 +49,10 @@ This is an interactive web-based pedagogical aid that illustrates shortest-path 
 2. Automatically fix ESLint & Prettier issues:
 
    ```
+   npm run lint-fix
+   ```
+
+   ```
    npm run format
    ```
 
