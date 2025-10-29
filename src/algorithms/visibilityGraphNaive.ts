@@ -17,7 +17,7 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
 
   const isVisible = (p1: Point, p2: Point): boolean => {
     for (const polygon of obstacles) {
-      let selfIntersectionCounter = 0
+      let selfIntersectionCounter = 0;
       for (let i = 0; i < polygon.length; i++) {
         const a = polygon[i];
         const b = polygon[(i + 1) % polygon.length];
@@ -27,14 +27,14 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
           (b.x === p1.x && b.y === p1.y) ||
           (a.x === p2.x && a.y === p2.y) ||
           (b.x === p2.x && b.y === p2.y)
-        ){
-          selfIntersectionCounter++
+        ) {
+          selfIntersectionCounter++;
           continue;
         }
         if (segmentsIntersect(p1, p2, a, b)) return false;
       }
       // Check if the line segment is inside the polygon
-      if (selfIntersectionCounter > 3) return false
+      if (selfIntersectionCounter > 3) return false;
     }
     return true;
   };

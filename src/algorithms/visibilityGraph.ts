@@ -3,7 +3,7 @@ import type { AlgorithmStep, Point } from '../components/CanvasComponent';
 interface StarPoint {
   pnt: Point;
   f: number;
-  g: number; 
+  g: number;
   h: number;
   parent: Point;
 }
@@ -94,86 +94,87 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
 }
 
 // Find the shortest path
-function astar(start: Point, goal: Point, vgraph: Map<String, Point[]>): Point[] {
+function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): Point[] {
   if (vgraph.size === 2) {
     return [start, goal];
   }
 
-  let open: Map<String, StarPoint> = new Map();
-  let closed: Map<String, StarPoint> = new Map();
+  const open: Map<string, StarPoint> = new Map();
+  const closed: Map<string, StarPoint> = new Map();
 
-  open.set(getKeyString(start), {pnt: start, f: 0, parent: start, g: 0, h: heuristic(start, goal)});
+  open.set(getKeyString(start), { pnt: start, f: 0, parent: start, g: 0, h: heuristic(start, goal) });
 
-  while (open.size > 0){
+  while (open.size > 0) {
     // get node in open with lowest f value
-    let current = getLowestF(open);
-    if (current){
-      let currStr = getKeyString(current.pnt);
-      console.log("a* current node: ", current.pnt);
-      if (current.pnt === goal){
+    const current = getLowestF(open);
+    if (current) {
+      const currStr = getKeyString(current.pnt);
+      console.log('a* current node: ', current.pnt);
+      if (current.pnt === goal) {
         // return reconstructed path with current node
-        console.log("a* found goal, returning path", current);
+        console.log('a* found goal, returning path', current);
         return constructPath(current, closed);
       }
 
       // remove current from open
       open.delete(currStr);
-      console.log("a* adding to closed list: ", current);
+      console.log('a* adding to closed list: ', current);
       closed.set(currStr, current);
 
       // check all neighboring nodes of current
-      let neighbors  = vgraph.get(currStr);
-      switch (typeof neighbors){
+      const neighbors = vgraph.get(currStr);
+      switch (typeof neighbors) {
         case 'undefined':
-          console.log("tried to search undefined node: ", current.pnt);
+          console.log('tried to search undefined node: ', current.pnt);
           return [];
         default:
-          for (let n = 0; n < neighbors.length; n++){
-            let currNeighbor = neighbors[n];
-            let neighborStr = getKeyString(currNeighbor);
-            console.log("a* testing neighbor: ", currNeighbor);
-          // if neighbor not in closed 
-            if (!closed.has(neighborStr)){
+          for (let n = 0; n < neighbors.length; n++) {
+            const currNeighbor = neighbors[n];
+            const neighborStr = getKeyString(currNeighbor);
+            console.log('a* testing neighbor: ', currNeighbor);
+            // if neighbor not in closed
+            if (!closed.has(neighborStr)) {
               // calculate tentative g score
-              let tentG = current.g + heuristic(current.pnt, currNeighbor);
-              let nInOpen = open.get(neighborStr);
-              if (nInOpen){
+              const tentG = current.g + heuristic(current.pnt, currNeighbor);
+              const nInOpen = open.get(neighborStr);
+              if (nInOpen) {
                 // if tentative g < neighbor g, this path is better
-                if (tentG < nInOpen.g){
+                if (tentG < nInOpen.g) {
                   nInOpen.parent = current.pnt;
                   nInOpen.g = tentG;
                   nInOpen.h = heuristic(currNeighbor, goal);
                   nInOpen.f = nInOpen.g + nInOpen.h;
                 }
-              } else { 
+              } else {
                 // if neighbor not in open, add to open
                 open.set(neighborStr, {
-                  pnt: currNeighbor, 
-                  f: tentG + heuristic(currNeighbor, goal), 
-                  g: tentG, 
-                  h: heuristic(currNeighbor, goal), 
-                  parent: current.pnt});
+                  pnt: currNeighbor,
+                  f: tentG + heuristic(currNeighbor, goal),
+                  g: tentG,
+                  h: heuristic(currNeighbor, goal),
+                  parent: current.pnt,
+                });
               }
             }
           }
       }
     }
   }
-  console.log("a* returning empty path");
+  console.log('a* returning empty path');
   return [];
 }
 
 // Get unique key string from Point for comparison use
-function getKeyString (p: Point): string {
-    return `${p.x.toFixed(5)},${p.y.toFixed(5)}`;
+function getKeyString(p: Point): string {
+  return `${p.x.toFixed(5)},${p.y.toFixed(5)}`;
 }
 
 // Return lowest f value
-function getLowestF (open: Map<String, StarPoint>) {
+function getLowestF(open: Map<string, StarPoint>) {
   let lowestF = -1;
   let lowest = null;
-  for (const value of open.values()){
-    if (lowestF === -1 || value.f < lowestF){
+  for (const value of open.values()) {
+    if (lowestF === -1 || value.f < lowestF) {
       lowestF = value.f;
       lowest = value;
     }
@@ -182,26 +183,28 @@ function getLowestF (open: Map<String, StarPoint>) {
 }
 
 // Manhattan distance heuristic function
-function heuristic (p1: Point, p2: Point): number{
-  return Math.abs((p1.x - p2.x)) + Math.abs((p1.y - p2.y));
+function heuristic(p1: Point, p2: Point): number {
+  return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
 }
 
 // Construct final path
-function constructPath (current: StarPoint, closed: Map<String, StarPoint>) {
-  console.log("current map", closed);
-  let path: Point[] = [];
+function constructPath(current: StarPoint, closed: Map<string, StarPoint>) {
+  console.log('current map', closed);
+  const path: Point[] = [];
   let curr = current;
-  while (true){ // can't set to null, so stop when parent = itself
+  while (true) {
+    // can't set to null, so stop when parent = itself
     path.push(curr.pnt);
-    console.log("constructPath: pushed curr onto path", curr.pnt);
+    console.log('constructPath: pushed curr onto path', curr.pnt);
     if (getKeyString(curr.parent) === getKeyString(curr.pnt)) {
-      return path;}
+      return path;
+    }
     // set current = current.parent
-    let temp = closed.get(getKeyString(curr.parent));
-    if (temp){
+    const temp = closed.get(getKeyString(curr.parent));
+    if (temp) {
       curr = temp;
     } else {
-      console.log("returned early from path, parent was: ", temp, getKeyString(curr.parent));
+      console.log('returned early from path, parent was: ', temp, getKeyString(curr.parent));
       return path;
     }
   }
