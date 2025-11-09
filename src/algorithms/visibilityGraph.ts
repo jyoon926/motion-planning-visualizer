@@ -8,7 +8,12 @@ interface StarPoint {
   parent: Point;
 }
 
-function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][]): AlgorithmStep[] {
+function computeVisibilityGraph(
+  start: Point,
+  goal: Point,
+  obstacles: Point[][],
+  canvasSize: { width: number; height: number }
+): AlgorithmStep[] {
   const timeline: AlgorithmStep[] = [];
   const vertices: Point[] = [];
   const edges: [Point, Point][] = [];
@@ -94,7 +99,7 @@ function computeVisibilityGraph(start: Point, goal: Point, obstacles: Point[][])
 }
 
 // Find the shortest path
-function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): Point[] {
+export function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): Point[] {
   if (vgraph.size === 2) {
     return [start, goal];
   }
@@ -165,7 +170,7 @@ function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): Point[]
 }
 
 // Get unique key string from Point for comparison use
-function getKeyString(p: Point): string {
+export function getKeyString(p: Point): string {
   return `${p.x.toFixed(5)},${p.y.toFixed(5)}`;
 }
 

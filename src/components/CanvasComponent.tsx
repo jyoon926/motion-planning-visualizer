@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { computeVisibilityGraph } from '../algorithms/visibilityGraph';
-import { computeVoronoi } from '../algorithms/voronoi';
+import { computeVoronoi } from '../algorithms/voronoiTest';
 import { MdDelete, MdEdit, MdPause, MdPlayArrow } from 'react-icons/md';
 
 // MARK: Interfaces and Types
@@ -32,7 +32,7 @@ type SpecialPoint = 'start' | 'goal' | null;
 type AlgorithmType = 'visibility' | 'voronoi';
 interface AlgorithmInfo {
   name: string;
-  algorithm: (start: Point, goal: Point, obstacles: Point[][]) => AlgorithmStep[];
+  algorithm: (start: Point, goal: Point, obstacles: Point[][], canvasSize: { width: number; height: number }) => AlgorithmStep[];
 }
 
 const algorithms: Record<AlgorithmType, AlgorithmInfo> = {
@@ -96,7 +96,7 @@ function CanvasComponent() {
   }, []);
 
   const runAlgorithm = useCallback(() => {
-    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons);
+    const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons, canvasSize);
     setTimeline(steps);
     setCurrentStep(steps.length - 1);
   }, [algorithm, startPoint, goalPoint, polygons]);
@@ -563,17 +563,15 @@ function CanvasComponent() {
         <div className="flex gap-2">
           <button
             onClick={() => setMode('edit')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
-              mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <MdEdit />
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
-              mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <MdDelete />
           </button>
