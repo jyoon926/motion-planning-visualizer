@@ -110,8 +110,6 @@ function computeVoronoi(
   const connectPointToCell = (point: Point, cellIndex: number) => {
     const cell = voronoi.cellPolygon(cellIndex);
     if (!cell) return;
-
-    const keyPoint = getKeyString(point);
     for (const vertex of cell) {
       const vertexPoint = { x: vertex[0], y: vertex[1] };
       edges.push([point, vertexPoint]);

@@ -32,7 +32,12 @@ type SpecialPoint = 'start' | 'goal' | null;
 type AlgorithmType = 'visibility' | 'voronoi';
 interface AlgorithmInfo {
   name: string;
-  algorithm: (start: Point, goal: Point, obstacles: Point[][], canvasSize: { width: number; height: number }) => AlgorithmStep[];
+  algorithm: (
+    start: Point,
+    goal: Point,
+    obstacles: Point[][],
+    canvasSize: { width: number; height: number }
+  ) => AlgorithmStep[];
 }
 
 const algorithms: Record<AlgorithmType, AlgorithmInfo> = {
@@ -99,7 +104,7 @@ function CanvasComponent() {
     const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons, canvasSize);
     setTimeline(steps);
     setCurrentStep(steps.length - 1);
-  }, [algorithm, startPoint, goalPoint, polygons]);
+  }, [algorithm, startPoint, goalPoint, polygons, canvasSize]);
 
   // Run algorithm when polygons, start, goal, or algorithm changes
   useEffect(() => {
@@ -303,6 +308,7 @@ function CanvasComponent() {
     hoveredSpecialPoint,
     currentStep,
     timeline,
+    canvasSize,
   ]);
 
   // MARK: Handlers/Helpers
@@ -563,15 +569,17 @@ function CanvasComponent() {
         <div className="flex gap-2">
           <button
             onClick={() => setMode('edit')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
-              }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
+              mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
+            }`}
           >
             <MdEdit />
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
-              }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
+              mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
+            }`}
           >
             <MdDelete />
           </button>

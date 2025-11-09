@@ -14,6 +14,7 @@ function computeVisibilityGraph(
   obstacles: Point[][],
   canvasSize: { width: number; height: number }
 ): AlgorithmStep[] {
+  console.log(canvasSize);
   const timeline: AlgorithmStep[] = [];
   const vertices: Point[] = [];
   const edges: [Point, Point][] = [];
