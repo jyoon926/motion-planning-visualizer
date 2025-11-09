@@ -86,20 +86,6 @@ function CanvasComponent() {
 
   // MARK: Use Effects
 
-  // Handle canvas resize
-  useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setCanvasSize({ width, height });
-      }
-    };
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
   const runAlgorithm = useCallback(() => {
     const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons, canvasSize);
     setTimeline(steps);
@@ -137,6 +123,15 @@ function CanvasComponent() {
 
   // MARK: Draw canvas
   useEffect(() => {
+    const handleResize = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setCanvasSize({ width, height });
+      }
+    };
+
+    handleResize();
+
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -560,7 +555,7 @@ function CanvasComponent() {
 
   // MARK: JSX
   return (
-    <div className="w-full h-full flex flex-col items-center gap-2 p-2">
+    <div className="w-full h-full flex flex-col justify-start items-center gap-2 p-2">
       {/* Header */}
       <div className="w-full flex items-center justify-between gap-2 bg-white px-4 py-2 rounded-lg border">
         <p>
@@ -611,10 +606,10 @@ function CanvasComponent() {
       </div>
 
       {/* Canvas */}
-      <div ref={containerRef} className="w-full flex-1 min-h-0">
+      <div ref={containerRef} className="w-full flex-1 overflow-hidden">
         <canvas
           ref={canvasRef}
-          className="bg-white border rounded-lg w-full h-full"
+          className="bg-white rounded-lg w-full h-full border"
           style={{ cursor }}
           width={canvasSize.width}
           height={canvasSize.height}
