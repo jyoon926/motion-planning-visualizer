@@ -123,14 +123,11 @@ function CanvasComponent() {
 
   // MARK: Draw canvas
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setCanvasSize({ width, height });
-      }
-    };
-
-    handleResize();
+    // Update canvas size
+    if (containerRef.current) {
+      const { width, height } = containerRef.current.getBoundingClientRect();
+      setCanvasSize({ width, height });
+    }
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -564,17 +561,15 @@ function CanvasComponent() {
         <div className="flex gap-2">
           <button
             onClick={() => setMode('edit')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
-              mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'edit' ? 'bg-blue-700 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <MdEdit />
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`text-xl p-2 rounded transition-colors cursor-pointer ${
-              mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
-            }`}
+            className={`text-xl p-2 rounded transition-colors cursor-pointer ${mode === 'delete' ? 'bg-red-500 text-white' : 'text-gray-700 hover:bg-gray-200'
+              }`}
           >
             <MdDelete />
           </button>
