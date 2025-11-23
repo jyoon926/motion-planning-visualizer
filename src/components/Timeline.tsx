@@ -103,19 +103,18 @@ export default function Timeline() {
 
   return (
     <div className="p-2 pt-0 disable-selection">
-      <div className="w-full h-auto rounded-lg border border-black/15 p-4 flex flex-col gap-3 shadow-lg">
+      <div className="w-full h-auto rounded-lg border border-black/10 p-4 flex flex-col gap-3 shadow-lg">
         {/* Current Action Message */}
         <div className="flex justify-between items-end">
           <div className="h-4">
             {timeline.length > 0 && (
               <p className="text-gray-700 font-medium text-sm animate-fade-in">
-                <span className="text-blue-500 font-bold mr-2">Step {currentStep}:</span>
+                <span className="text-blue-500 font-bold mr-2">
+                  Frame {currentStep + 1} of {totalFrames}:
+                </span>
                 {timeline[currentStep].message}
               </p>
             )}
-          </div>
-          <div className="text-xs text-gray-400">
-            Frame {currentStep + 1} of {totalFrames}
           </div>
         </div>
 

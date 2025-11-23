@@ -502,7 +502,7 @@ export default function Canvas() {
     <div ref={containerRef} className="p-2 pl-0 pt-0 relative w-full flex-1 overflow-hidden disable-selection">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block border border-black/15 rounded-lg shadow-lg touch-none"
+        className="w-full h-full block touch-none"
         style={{ cursor }}
         width={canvasSize.width}
         height={canvasSize.height}

@@ -37,3 +37,9 @@ input[type='range'] {
   -ms-user-select: none; /* Internet Explorer/Edge */
   user-select: none; /* Standard syntax (Chrome, Opera, Firefox 43+ & Edge 14+) */
 }
+
+input:hover,
+select:hover,
+button:hover {
+  cursor: pointer;
+}

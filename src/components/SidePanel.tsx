@@ -55,13 +55,13 @@ export default function SidePanel() {
   return (
     <div className="p-2 pt-0">
       <div
-        className="h-full flex flex-col rounded-lg border border-black/15 shadow-lg relative flex-shrink-0 overflow-hidden"
+        className="h-full flex flex-col rounded-lg border border-black/10 shadow-lg relative flex-shrink-0 overflow-hidden"
         style={{ width }}
       >
         {/* Header */}
-        <div className="p-3 border-b border-black/10 bg-white/40">
+        <div className="p-4 border-b border-black/10 bg-white/40">
           <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{algorithmInfo[algorithm].title}</h1>
-          <div className="mt-2 flex items-center gap-2 text-xs font-mono text-gray-500 bg-gray-100/50 p-2 rounded border border-gray-200">
+          <div className="mt-2 flex items-center gap-2 text-xs font-mono text-gray-500 bg-gray-100/50 p-2 rounded border border-black/10">
             <MdInfoOutline className="text-blue-500 text-lg" />
             {algorithmInfo[algorithm].complexity}
           </div>
@@ -81,15 +81,15 @@ export default function SidePanel() {
                 max="100"
                 value={params.voronoiSampleDist}
                 onChange={(e) => setParams({ voronoiSampleDist: Number(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                className="flex-1 h-1.5 bg-gray-300 rounded-lg appearance-none accent-blue-500"
               />
-              <span className="text-xs text-gray-500 w-8 text-right">{params.voronoiSampleDist}px</span>
+              <span className="text-xs text-gray-400 w-8 text-right">{params.voronoiSampleDist}px</span>
             </div>
           </div>
         )}
 
         {/* Phases List */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {phases.map((phase) => {
             const isActive = activePhaseId === phase.id;
             const isExpanded = expandedPhase === phase.id;
@@ -106,7 +106,7 @@ export default function SidePanel() {
                 {/* Phase Header */}
                 <button
                   onClick={() => (isExpanded ? setExpandedPhase(null) : jumpToPhase(phase))}
-                  className="w-full flex items-center justify-between p-3 text-left cursor-pointer"
+                  className="w-full flex items-center justify-between p-3 text-left"
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-2 h-6 rounded-full ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
