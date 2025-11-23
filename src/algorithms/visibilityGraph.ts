@@ -12,6 +12,7 @@ interface StarPoint {
 
 interface NodeEdge {
   id: number;
+  dist: number;
   edge: [Point, Point];
 }
 
@@ -131,7 +132,7 @@ function computeVisibilityGraph(
  * Find all visible edges from the current point in O(n log n) time
  * @param currP current point
  * @param vertices all vertices
- * @param edges all edges
+ * @param edges edges of all obstacles
  * @returns the visible edges
  */
 function findVisibleEdges(currP: number, vertices: Point[], edges: [Point, Point][]): [Point, Point][]{
@@ -142,6 +143,20 @@ function findVisibleEdges(currP: number, vertices: Point[], edges: [Point, Point
     if (a.id < b.id) return -1;
     if (a.id > b.id) return 1;
     return 0;
+  }
+
+  const distComparator = (a: NodeEdge, b: NodeEdge): number => {
+    if (a.dist < b.dist) return -1;
+    if (a.dist > b.dist) return 1;
+    return 0;
+  }
+
+  const calculateIntersection = (edge1: [Point, Point], edge2: Point[]): Point => {
+    return {x: 0, y: 0}; //TODO
+  }
+
+  const calculateDistance = (p: Point): number =>{
+    return Math.sqrt(Math.pow(vertices[currP].x - p.x,2) + Math.pow(vertices[currP].y - p.y,2));
   }
 
   const inOrderIntersection = (
@@ -160,7 +175,7 @@ function findVisibleEdges(currP: number, vertices: Point[], edges: [Point, Point
     return false;
   }
 
-  const bst = new BinarySearchTree<NodeEdge>(idComparator);
+  const bst = new BinarySearchTree<NodeEdge>(distComparator);
 
   const isVisible = (p: Point, w: number): boolean => {
     // TODO if intersects interior of obstacle of which wi is vertex then return false
@@ -195,7 +210,7 @@ function findVisibleEdges(currP: number, vertices: Point[], edges: [Point, Point
      *         positive value for positive orientation (counter-clockwise),
      *         or zero for co-linear points
      */
-  // orientaion(p, w/edge.p1, edge.p2): + for clockwise (insert edge), - for ccw(delete edge)
+  // orientation(p, w/edge.p1, edge.p2): + for clockwise (insert edge), - for ccw(delete edge)
   const orientation = (p: Point, q: Point, r: Point): number => 
     ((q.x * r.y) + (p.x * q.y) + (p.y * r.x)) - ((q.x * p.y) + (r.x * q.y) + (r.y * p.x));
   
@@ -225,8 +240,13 @@ function findVisibleEdges(currP: number, vertices: Point[], edges: [Point, Point
   const halfline = [{x:0, y:currPoint.y}, currPoint];
   for (const e of edges){
     if(segmentsIntersect(e[0], e[1], halfline[0], halfline[1])) {
-      // todo insert in the order they intersect halfline aka reverse x order (this requires another sort... n log n again)
-      bst.insert({id: idCounter, edge: e})
+      const intersectionPt = calculateIntersection(e, halfline) // TODO find the intersection of the line segment and they halfline RAY to make things easier
+      // TODO insert in the order they intersect halfline aka reverse x order (this requires another sort... n log n again)
+      // TODO may need to sort the BST by a different factor than the id so that they stay in this order. not sure how this interacts with things already in the tree
+      // Notes: BST needs to be sorted by distance from the center point. 
+      //        This will not change as we rotate, unless we pass a special event, but then we will have already removed that one.
+      //        Keep a map to quickly access ids via their distance in the tree?
+      bst.insert({id: idCounter, edge: e, dist: calculateDistance(intersectionPt)})
       idCounter++;
     }
   }
