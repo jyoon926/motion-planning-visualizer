@@ -103,7 +103,7 @@ export default function Timeline() {
 
   return (
     <div className="p-2 pt-0 disable-selection">
-      <div className="w-full h-auto rounded-lg border border-black/10 p-4 flex flex-col gap-3 shadow-lg">
+      <div className="w-full h-auto rounded-lg border border-black/15 p-4 flex flex-col gap-3 shadow-lg">
         {/* Current Action Message */}
         <div className="flex justify-between items-end">
           <div className="h-4">

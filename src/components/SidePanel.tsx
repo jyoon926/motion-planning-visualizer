@@ -55,7 +55,7 @@ export default function SidePanel() {
   return (
     <div className="p-2 pt-0">
       <div
-        className="h-full flex flex-col rounded-lg border border-black/10 shadow-lg relative flex-shrink-0 overflow-hidden"
+        className="h-full flex flex-col rounded-lg border border-black/15 shadow-lg relative flex-shrink-0 overflow-hidden"
         style={{ width }}
       >
         {/* Header */}
