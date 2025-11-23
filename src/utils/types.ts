@@ -46,7 +46,7 @@ export interface HoveredPolygon {
 
 export type Mode = 'edit' | 'delete';
 export type SpecialPoint = 'start' | 'goal' | null;
-export type AlgorithmType = 'visibility' | 'voronoi';
+export type AlgorithmType = 'visibility' | 'voronoi' | 'compare';
 
 export interface AlgorithmOutput {
   steps: AlgorithmStep[];

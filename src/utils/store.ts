@@ -11,6 +11,15 @@ import type {
   Parameters,
 } from './types';
 
+export interface ComparisonData {
+  visibility: {
+    pathLength: number;
+  };
+  voronoi: {
+    pathLength: number;
+  };
+}
+
 interface AppState {
   // Data
   polygons: Point[][];
@@ -53,6 +62,12 @@ interface AppState {
   hoveredPhaseId: string | null;
   activePhaseId: string | null;
 
+  // Other
+  compareData: ComparisonData;
+  isAboutDialogOpen: boolean;
+  finalVisStep: AlgorithmStep | null;
+  finalVoronoiStep: AlgorithmStep | null;
+
   // Actions
   setPolygons: (polygons: Point[][]) => void;
   setCurrentPoints: (points: Point[]) => void;
@@ -82,6 +97,11 @@ interface AppState {
   setIsPlaying: (isPlaying: boolean) => void;
   setFps: (fps: number) => void;
   setHoveredPhaseId: (id: string | null) => void;
+
+  setCompareData: (data: Partial<ComparisonData>) => void;
+  setIsAboutDialogOpen: (isOpen: boolean) => void;
+  setFinalVisStep: (step: AlgorithmStep | null) => void;
+  setFinalVoronoiStep: (step: AlgorithmStep | null) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -120,6 +140,14 @@ export const useStore = create<AppState>((set) => ({
 
   hoveredPhaseId: null,
   activePhaseId: null,
+
+  compareData: {
+    visibility: { pathLength: 0 },
+    voronoi: { pathLength: 0 },
+  },
+  isAboutDialogOpen: true,
+  finalVisStep: null,
+  finalVoronoiStep: null,
 
   // Setters
   setPolygons: (polygons) => set({ polygons }),
@@ -163,4 +191,15 @@ export const useStore = create<AppState>((set) => ({
   setIsPlaying: (isPlaying) => set({ isPlaying }),
   setFps: (fps) => set({ fps }),
   setHoveredPhaseId: (hoveredPhaseId) => set({ hoveredPhaseId }),
+
+  setCompareData: (data) =>
+    set((state) => ({
+      compareData: {
+        visibility: { ...state.compareData.visibility, ...data.visibility },
+        voronoi: { ...state.compareData.voronoi, ...data.voronoi },
+      },
+    })),
+  setIsAboutDialogOpen: (isAboutDialogOpen) => set({ isAboutDialogOpen }),
+  setFinalVisStep: (finalVisStep) => set({ finalVisStep }),
+  setFinalVoronoiStep: (finalVoronoiStep) => set({ finalVoronoiStep }),
 }));

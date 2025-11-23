@@ -1,8 +1,20 @@
+// Header.tsx
+
 import { useStore } from '../utils/store';
 import type { AlgorithmType } from '../utils/types';
+import { MdInfoOutline } from 'react-icons/md'; // Import icon for About button
 
 export default function Header() {
-  const { mode, setMode, algorithm, setAlgorithm, setPolygons, setIsComplete, setCurrentPoints } = useStore();
+  const {
+    mode,
+    setMode,
+    algorithm,
+    setAlgorithm,
+    setPolygons,
+    setIsComplete,
+    setCurrentPoints,
+    setIsAboutDialogOpen, // Get the setter
+  } = useStore();
 
   const handleClear = () => {
     setPolygons([]);
@@ -45,12 +57,24 @@ export default function Header() {
         >
           <option value="visibility">Visibility Graph</option>
           <option value="voronoi">Voronoi Diagram</option>
+          <option value="compare">Compare</option>
         </select>
 
         <div className="h-6 border-l border-gray-300" />
 
+        {/* Reset Button */}
         <button onClick={handleClear} className="p-1 text-gray-500 hover:text-red-500 transition-colors">
           Reset
+        </button>
+
+        <div className="h-6 border-l border-gray-300" />
+
+        {/* About Button */}
+        <button
+          onClick={() => setIsAboutDialogOpen(true)}
+          className="p-1 text-gray-500 hover:text-blue-500 transition-colors flex items-center gap-1 text-sm font-medium"
+        >
+          <MdInfoOutline className="text-lg" /> About
         </button>
       </div>
     </div>

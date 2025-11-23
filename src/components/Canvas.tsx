@@ -36,6 +36,24 @@ const distToSegment = (p: Point, v: Point, w: Point) => {
   return dist(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
 };
 
+const drawPath = (ctx: CanvasRenderingContext2D, path: Point[], color: string, isDashed: boolean = false) => {
+  if (path && path.length > 1) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = color;
+    if (isDashed) ctx.setLineDash([10, 5]);
+
+    ctx.beginPath();
+    ctx.moveTo(path[0].x, path[0].y);
+    for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+    ctx.stroke();
+
+    ctx.setLineDash([]); // Reset line dash
+    ctx.shadowBlur = 0; // Reset shadow
+  }
+};
+
 export default function Canvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +80,9 @@ export default function Canvas() {
     timeline,
     currentStep,
     canvasTooltip,
+    algorithm,
+    finalVisStep,
+    finalVoronoiStep,
   } = state;
 
   useEffect(() => {
@@ -135,8 +156,18 @@ export default function Canvas() {
       });
     });
 
-    // Draw Algorithm State
-    if (currentStep >= 0 && currentStep < timeline.length) {
+    // Draw Algorithm State / Comparison Paths
+    if (algorithm === 'compare') {
+      // Draw Voronoi Path (Max Clearance - Yellow/Orange and dashed)
+      if (finalVoronoiStep?.path) {
+        drawPath(ctx, finalVoronoiStep.path, THEME.active.line, false);
+      }
+
+      // Draw Visibility Path (Shortest Path - Green/Valid and solid)
+      if (finalVisStep?.path) {
+        drawPath(ctx, finalVisStep.path, THEME.active.valid, false);
+      }
+    } else if (currentStep >= 0 && currentStep < timeline.length) {
       const step = timeline[currentStep];
 
       // Static Graph Edges

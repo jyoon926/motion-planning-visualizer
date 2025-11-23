@@ -179,7 +179,7 @@ export default function Timeline() {
 
             {/* Play / Pause */}
             <button
-              className={`flex items-center gap-2 pl-5 pr-6 py-2 rounded-full font-semibold transition-all shadow-sm ${
+              className={`flex items-center gap-2 pl-5 pr-6 py-2 rounded-lg font-semibold transition-all shadow-sm ${
                 isPlaying
                   ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
                   : 'bg-blue-600 text-white hover:bg-blue-700'
