@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { computeVisibilityGraph } from '../algorithms/visibilityGraph';
 import { computeVoronoi } from '../algorithms/voronoiTest';
 import { MdDelete, MdEdit, MdPause, MdPlayArrow } from 'react-icons/md';
@@ -71,7 +71,6 @@ function CanvasComponent() {
   const [algorithm, setAlgorithm] = useState<AlgorithmType>('visibility');
   const [timeline, setTimeline] = useState<AlgorithmStep[]>([]);
   const [currentStep, setCurrentStep] = useState<number>(-1);
-  // const [live, setLive] = useState<boolean>(true);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [fps, setFps] = useState<number>(10); // 10 FPS default
   // Special points
@@ -85,17 +84,11 @@ function CanvasComponent() {
   const SPECIAL_POINT_RADIUS = 16;
 
   // MARK: Use Effects
-
-  const runAlgorithm = useCallback(() => {
+  useEffect(() => {
     const steps = algorithms[algorithm].algorithm(startPoint, goalPoint, polygons, canvasSize);
     setTimeline(steps);
     setCurrentStep(steps.length - 1);
-  }, [algorithm, startPoint, goalPoint, polygons, canvasSize]);
-
-  // Run algorithm when polygons, start, goal, or algorithm changes
-  useEffect(() => {
-    runAlgorithm();
-  }, [polygons, startPoint, goalPoint, algorithm, runAlgorithm]);
+  }, [polygons, startPoint, goalPoint, algorithm, canvasSize]);
 
   // Handle play/pause of timeline
   useEffect(() => {
@@ -119,14 +112,16 @@ function CanvasComponent() {
     }, 1000 / fps); // Convert FPS to milliseconds interval
 
     return () => clearInterval(interval);
-  }, [isPlaying, currentStep, timeline, fps]);
+  }, [currentStep, fps, timeline.length, isPlaying]);
 
   // MARK: Draw canvas
   useEffect(() => {
     // Update canvas size
     if (containerRef.current) {
       const { width, height } = containerRef.current.getBoundingClientRect();
-      setCanvasSize({ width, height });
+      if (canvasSize.width !== width || canvasSize.height !== height) {
+        setCanvasSize({ width, height });
+      }
     }
 
     const canvas = canvasRef.current;
@@ -632,14 +627,14 @@ function CanvasComponent() {
         >
           {isPlaying ? (
             <>
-              <span className="text-lg text-nowrap">Pause Algorithm</span>
+              <span className="text-lg text-nowrap">Pause Animation</span>
               <span className="text-2xl">
                 <MdPause />
               </span>
             </>
           ) : (
             <>
-              <span className="text-lg text-nowrap">Run Algorithm</span>
+              <span className="text-lg text-nowrap">Run Animation</span>
               <span className="text-2xl">
                 <MdPlayArrow />
               </span>

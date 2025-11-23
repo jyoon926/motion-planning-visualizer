@@ -89,7 +89,7 @@ function computeVisibilityGraph(
 
   // Calculate shortest path with A*
   for (const p of astar(start, goal, vgraph)) {
-    console.log(`Pushing (${p.x}, ${p.y}) to path`);
+    // console.log(`Pushing (${p.x}, ${p.y}) to path`);
     path.push(p);
   }
   update('Adding path...');
@@ -115,29 +115,29 @@ export function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): 
     const current = getLowestF(open);
     if (current) {
       const currStr = getKeyString(current.pnt);
-      console.log('a* current node: ', current.pnt);
+      // console.log('a* current node: ', current.pnt);
       if (current.pnt === goal) {
         // return reconstructed path with current node
-        console.log('a* found goal, returning path', current);
+        // console.log('a* found goal, returning path', current);
         return constructPath(current, closed);
       }
 
       // remove current from open
       open.delete(currStr);
-      console.log('a* adding to closed list: ', current);
+      // console.log('a* adding to closed list: ', current);
       closed.set(currStr, current);
 
       // check all neighboring nodes of current
       const neighbors = vgraph.get(currStr);
       switch (typeof neighbors) {
         case 'undefined':
-          console.log('tried to search undefined node: ', current.pnt);
+          // console.log('tried to search undefined node: ', current.pnt);
           return [];
         default:
           for (let n = 0; n < neighbors.length; n++) {
             const currNeighbor = neighbors[n];
             const neighborStr = getKeyString(currNeighbor);
-            console.log('a* testing neighbor: ', currNeighbor);
+            // console.log('a* testing neighbor: ', currNeighbor);
             // if neighbor not in closed
             if (!closed.has(neighborStr)) {
               // calculate tentative g score
@@ -166,7 +166,7 @@ export function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): 
       }
     }
   }
-  console.log('a* returning empty path');
+  // console.log('a* returning empty path');
   return [];
 }
 
@@ -195,13 +195,13 @@ function heuristic(p1: Point, p2: Point): number {
 
 // Construct final path
 function constructPath(current: StarPoint, closed: Map<string, StarPoint>) {
-  console.log('current map', closed);
+  // console.log('current map', closed);
   const path: Point[] = [];
   let curr = current;
   while (true) {
     // can't set to null, so stop when parent = itself
     path.push(curr.pnt);
-    console.log('constructPath: pushed curr onto path', curr.pnt);
+    // console.log('constructPath: pushed curr onto path', curr.pnt);
     if (getKeyString(curr.parent) === getKeyString(curr.pnt)) {
       return path;
     }
@@ -210,7 +210,7 @@ function constructPath(current: StarPoint, closed: Map<string, StarPoint>) {
     if (temp) {
       curr = temp;
     } else {
-      console.log('returned early from path, parent was: ', temp, getKeyString(curr.parent));
+      // console.log('returned early from path, parent was: ', temp, getKeyString(curr.parent));
       return path;
     }
   }
