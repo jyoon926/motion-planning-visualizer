@@ -1,4 +1,8 @@
-import type { AlgorithmStep, Point } from '../components/CanvasComponent';
+// algorithms/visibilityGraph.ts
+import { getKeyString } from '../utils/common';
+import { expandPolygon } from '../utils/geometry';
+import type { AlgorithmOutput, AlgorithmPhase, AlgorithmStep, Parameters, Point } from '../utils/types';
+import { runAStar } from './astar';
 
 interface StarPoint {
   pnt: Point;
@@ -8,29 +12,86 @@ interface StarPoint {
   parent: Point;
 }
 
-function computeVisibilityGraph(
+export function computeVisibilityGraph(
   start: Point,
   goal: Point,
-  obstacles: Point[][],
-  canvasSize: { width: number; height: number }
-): AlgorithmStep[] {
-  console.log(canvasSize);
-  const timeline: AlgorithmStep[] = [];
-  const vertices: Point[] = [];
-  const edges: [Point, Point][] = [];
-  const path: Point[] = [];
+  rawPolygons: Point[][],
+  _: { width: number; height: number },
+  params: Parameters
+): AlgorithmOutput {
+  const steps: AlgorithmStep[] = [];
+  const phases: AlgorithmPhase[] = []; // State accumulators
 
-  const update = (message: string) => {
-    timeline.push({ message, vertices: [...vertices], edges: [...edges], path: [...path] });
+  let currentVertices: Point[] = [];
+  let currentEdges: [Point, Point][] = [];
+  let currentPath: Point[] = []; // Helper to push step
+
+  const addStep = (phaseId: string, message: string, extras: Partial<AlgorithmStep> = {}) => {
+    steps.push({
+      phaseId,
+      message,
+      vertices: [...currentVertices], // Capture the current state of vertices
+      edges: [...currentEdges],
+      path: [...currentPath],
+      ...extras,
+    });
   };
 
-  update('Starting visibility graph computation...');
+  // --- PHASE 1: PRE-PROCESSING (Build Vertices Step-by-Step) ---
 
-  // Create visibility graph
-  const vgraph: Map<string, Point[]> = new Map<string, Point[]>();
+  const phase1Id = 'init';
+  const startIdx1 = steps.length; // Inflate polygons
+
+  const obstacles = rawPolygons.map((p) => expandPolygon(p, params.obstacleMargin));
+
+  // 1. Add Start and Goal Points (Consolidated Step)
+  currentVertices.push(start, goal);
+  addStep(phase1Id, 'Added Start and Goal points to the set of vertices.', {
+    activeNode: start, // Highlight the start point
+    codeLine: 2, // Corresponds to `V = {start, goal} + ...`
+  });
+
+  // 2. Add all Obstacle Vertices (Consolidated Step)
+  const allObstacleVertices = obstacles.flat();
+  currentVertices.push(...allObstacleVertices); // Add all at once
+
+  addStep(
+    phase1Id,
+    `Added ${allObstacleVertices.length} obstacle corner vertices. Total vertices: ${currentVertices.length}.`,
+    {
+      codeLine: 2, // Corresponds to `V = {start, goal} + Vertices(...)`
+      activeState: 'neutral',
+    }
+  );
+
+  // 3. Initialize graph structure AFTER all vertices are added
+  const vgraph: Map<string, Point[]> = new Map();
+  currentVertices.forEach((v) => vgraph.set(getKeyString(v), []));
+
+  phases.push({
+    id: phase1Id,
+    name: 'Initialization',
+    description:
+      'We begin by defining the nodes (vertices) of our graph. These include the Start point, the Goal point, and all corner vertices of the obstacles. If an obstacle margin is defined, all obstacle polygons are first inflated (enlarged) to ensure a safe distance is maintained from the path to the physical obstacle, treating the moving agent as a point.',
+    pseudocode: `// 1. Inflate Polygons (if margin > 0)
+Expanded_Obstacles = Expand(Raw_Obstacles, Margin)
+
+// 2. Define Vertices
+V = {start, goal} + Vertices(Expanded_Obstacles)
+
+// 3. Initialize Graph
+G = (V, E) where E = {}`,
+    complexity: 'O(V + M)', // V for vertices, M for margin calculation on edges
+    startStepIndex: startIdx1,
+    endStepIndex: steps.length - 1,
+  }); // --- PHASE 2: VISIBILITY CHECK ---
+
+  // ---------------------------------------------------------------- //
+
+  const phase2Id = 'visibility';
+  const startIdx2 = steps.length;
 
   const ccw = (A: Point, B: Point, C: Point): boolean => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
-
   const segmentsIntersect = (A: Point, B: Point, C: Point, D: Point): boolean =>
     ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D);
 
@@ -39,8 +100,8 @@ function computeVisibilityGraph(
       let selfIntersectionCounter = 0;
       for (let i = 0; i < polygon.length; i++) {
         const a = polygon[i];
-        const b = polygon[(i + 1) % polygon.length];
-        // Skip if the edge shares an endpoint
+        const b = polygon[(i + 1) % polygon.length]; // Skip endpoints
+
         if (
           (a.x === p1.x && a.y === p1.y) ||
           (b.x === p1.x && b.y === p1.y) ||
@@ -51,169 +112,98 @@ function computeVisibilityGraph(
           continue;
         }
         if (segmentsIntersect(p1, p2, a, b)) return false;
-      }
-      // Check if the line segment is inside the polygon
+      } // Simple interior check approximation
       if (selfIntersectionCounter > 3) return false;
     }
     return true;
-  };
+  }; // Iterate all pairs
 
-  update('Starting visibility graph computation...');
+  for (let i = 0; i < currentVertices.length; i++) {
+    for (let j = i + 1; j < currentVertices.length; j++) {
+      const v1 = currentVertices[i];
+      const v2 = currentVertices[j]; // Visualization: Showing the check
 
-  // Add all vertices (iterative for visualization)
-  vertices.push(start);
-  vgraph.set(getKeyString(start), []);
-  update('Added vertex at start point');
-  vertices.push(goal);
-  vgraph.set(getKeyString(goal), []);
-  update('Added vertex at goal point');
-  for (const vertex of obstacles.flat()) {
-    vertices.push(vertex);
-    vgraph.set(getKeyString(vertex), []);
-    update(`Added vertex at (${vertex.x}, ${vertex.y})`);
-  }
+      addStep(
+        phase2Id,
+        `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
+        {
+          scanLine: [v1, v2],
+          activeState: 'checking',
+          codeLine: 2,
+        }
+      );
 
-  // Add visible edges
-  for (let i = 0; i < vertices.length; i++) {
-    for (let j = i + 1; j < vertices.length; j++) {
-      const v1 = vertices[i];
-      const v2 = vertices[j];
       if (isVisible(v1, v2)) {
-        edges.push([v1, v2]);
+        currentEdges.push([v1, v2]);
         vgraph.get(getKeyString(v1))?.push(v2);
         vgraph.get(getKeyString(v2))?.push(v1);
-        update(`Added edge between (${v1.x}, ${v1.y}) and (${v2.x}, ${v2.y})`);
+
+        addStep(phase2Id, 'Line of sight is clear. Edge added.', {
+          activeEdge: [v1, v2],
+          activeState: 'valid',
+          codeLine: 3,
+        });
+      } else {
+        // Optional: Visualizing a blocked line briefly
+        addStep(phase2Id, 'Line of sight blocked by obstacle.', {
+          scanLine: [v1, v2],
+          activeState: 'invalid',
+          codeLine: 2,
+        });
       }
     }
   }
 
-  // Calculate shortest path with A*
-  for (const p of astar(start, goal, vgraph)) {
-    // console.log(`Pushing (${p.x}, ${p.y}) to path`);
-    path.push(p);
+  phases.push({
+    id: phase2Id,
+    name: 'Building Visibility Graph',
+    description:
+      'We construct the edges of the graph by checking the line of sight (LOS) between every pair of vertices. An edge exists if and only if the straight line segment between the two vertices does not intersect any obstacle. The intersection check uses the Counter-Clockwise (CCW) orientation test to determine if two line segments cross.',
+    pseudocode: `For each pair (u, v) in V:
+  If LOS(u, v) is not Blocked by any Obstacle Edge:
+    Add edge (u, v) to G
+
+// LOS Check Detail:
+function SegmentsIntersect(A, B, C, D):
+  Return CCW(A, C, D) != CCW(B, C, D) && CCW(A, B, C) != CCW(A, B, D)`,
+    complexity: 'O(V² * E_obs)', // V vertices, E_obs obstacle edges. V² pairs * E_obs checks per pair.
+    startStepIndex: startIdx2,
+    endStepIndex: steps.length - 1,
+  }); // --- PHASE 3: PATHFINDING (A*) ---
+
+  // ---------------------------------------------------------------- //
+
+  const phase3Id = 'astar';
+  const startIdx3 = steps.length;
+
+  const pathResult = runAStar(start, goal, vgraph, (msg, meta) => {
+    addStep(phase3Id, msg, meta);
+  });
+
+  if (pathResult.length > 0) {
+    currentPath = pathResult;
+    addStep(phase3Id, 'Optimal path found!', { activeState: 'valid' });
+  } else {
+    addStep(phase3Id, 'No path found.', { activeState: 'invalid' });
   }
-  update('Adding path...');
 
-  update('Done!');
+  phases.push({
+    id: phase3Id,
+    name: 'A* Search',
+    description:
+      'With the complete visibility graph built, the A* search algorithm is used to find the shortest path from the Start node to the Goal node. A* minimizes the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal, serving as an admissible heuristic.',
+    pseudocode: `OpenSet = {start}
+While OpenSet not empty:
+  Current = Node with lowest F-score (g + h)
+  If Current == Goal: Reconstruct Path
+  For each neighbor:
+    Calculate tentative g-score
+    If tentative g < g[neighbor]:
+      Update scores and set parent`,
+    complexity: 'O(E log V)', // E edges, V vertices
+    startStepIndex: startIdx3,
+    endStepIndex: steps.length - 1,
+  });
 
-  return timeline;
+  return { steps, phases };
 }
-
-// Find the shortest path
-export function astar(start: Point, goal: Point, vgraph: Map<string, Point[]>): Point[] {
-  if (vgraph.size === 2) {
-    return [start, goal];
-  }
-
-  const open: Map<string, StarPoint> = new Map();
-  const closed: Map<string, StarPoint> = new Map();
-
-  open.set(getKeyString(start), { pnt: start, f: 0, parent: start, g: 0, h: heuristic(start, goal) });
-
-  while (open.size > 0) {
-    // get node in open with lowest f value
-    const current = getLowestF(open);
-    if (current) {
-      const currStr = getKeyString(current.pnt);
-      // console.log('a* current node: ', current.pnt);
-      if (current.pnt === goal) {
-        // return reconstructed path with current node
-        // console.log('a* found goal, returning path', current);
-        return constructPath(current, closed);
-      }
-
-      // remove current from open
-      open.delete(currStr);
-      // console.log('a* adding to closed list: ', current);
-      closed.set(currStr, current);
-
-      // check all neighboring nodes of current
-      const neighbors = vgraph.get(currStr);
-      switch (typeof neighbors) {
-        case 'undefined':
-          // console.log('tried to search undefined node: ', current.pnt);
-          return [];
-        default:
-          for (let n = 0; n < neighbors.length; n++) {
-            const currNeighbor = neighbors[n];
-            const neighborStr = getKeyString(currNeighbor);
-            // console.log('a* testing neighbor: ', currNeighbor);
-            // if neighbor not in closed
-            if (!closed.has(neighborStr)) {
-              // calculate tentative g score
-              const tentG = current.g + heuristic(current.pnt, currNeighbor);
-              const nInOpen = open.get(neighborStr);
-              if (nInOpen) {
-                // if tentative g < neighbor g, this path is better
-                if (tentG < nInOpen.g) {
-                  nInOpen.parent = current.pnt;
-                  nInOpen.g = tentG;
-                  nInOpen.h = heuristic(currNeighbor, goal);
-                  nInOpen.f = nInOpen.g + nInOpen.h;
-                }
-              } else {
-                // if neighbor not in open, add to open
-                open.set(neighborStr, {
-                  pnt: currNeighbor,
-                  f: tentG + heuristic(currNeighbor, goal),
-                  g: tentG,
-                  h: heuristic(currNeighbor, goal),
-                  parent: current.pnt,
-                });
-              }
-            }
-          }
-      }
-    }
-  }
-  // console.log('a* returning empty path');
-  return [];
-}
-
-// Get unique key string from Point for comparison use
-export function getKeyString(p: Point): string {
-  return `${p.x.toFixed(5)},${p.y.toFixed(5)}`;
-}
-
-// Return lowest f value
-function getLowestF(open: Map<string, StarPoint>) {
-  let lowestF = -1;
-  let lowest = null;
-  for (const value of open.values()) {
-    if (lowestF === -1 || value.f < lowestF) {
-      lowestF = value.f;
-      lowest = value;
-    }
-  }
-  return lowest;
-}
-
-// Manhattan distance heuristic function
-function heuristic(p1: Point, p2: Point): number {
-  return Math.abs(p1.x - p2.x) + Math.abs(p1.y - p2.y);
-}
-
-// Construct final path
-function constructPath(current: StarPoint, closed: Map<string, StarPoint>) {
-  // console.log('current map', closed);
-  const path: Point[] = [];
-  let curr = current;
-  while (true) {
-    // can't set to null, so stop when parent = itself
-    path.push(curr.pnt);
-    // console.log('constructPath: pushed curr onto path', curr.pnt);
-    if (getKeyString(curr.parent) === getKeyString(curr.pnt)) {
-      return path;
-    }
-    // set current = current.parent
-    const temp = closed.get(getKeyString(curr.parent));
-    if (temp) {
-      curr = temp;
-    } else {
-      // console.log('returned early from path, parent was: ', temp, getKeyString(curr.parent));
-      return path;
-    }
-  }
-}
-
-export { computeVisibilityGraph };
