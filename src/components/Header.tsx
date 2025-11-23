@@ -12,10 +12,7 @@ export default function Header() {
 
   return (
     <div className="w-full h-14 px-5 flex items-center justify-between border-b border-white/20 bg-white/40 backdrop-blur-md z-30">
-      <div className="flex items-center gap-4">
-        {/* <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-md shadow-blue-300 shadow-lg">MP</div> */}
-        <h1 className="font-bold text-lg text-gray-800 tracking-tight">Motion Planning Visualizer</h1>
-      </div>
+      <h1 className="font-bold text-lg text-gray-800 tracking-tight">Motion Planning Visualizer</h1>
 
       <div className="flex gap-4 items-center">
         {/* Tools */}
@@ -38,7 +35,7 @@ export default function Header() {
           </button>
         </div>
 
-        <div className="w-px h-6 bg-gray-300 mx-2"></div>
+        <div className="h-6 border-l border-gray-300" />
 
         {/* Algorithm Select */}
         <select
@@ -49,6 +46,8 @@ export default function Header() {
           <option value="visibility">Visibility Graph</option>
           <option value="voronoi">Voronoi Diagram</option>
         </select>
+
+        <div className="h-6 border-l border-gray-300" />
 
         <button onClick={handleClear} className="p-1 text-gray-500 hover:text-red-500 transition-colors">
           Reset

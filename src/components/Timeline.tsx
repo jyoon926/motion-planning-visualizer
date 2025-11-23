@@ -220,7 +220,7 @@ export default function Timeline() {
           {/* FPS */}
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-400">Animation Speed:</label>
+              <label className="text-xs font-medium text-gray-700">Animation Speed:</label>
               <input
                 type="range"
                 min="1"
