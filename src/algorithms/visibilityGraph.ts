@@ -51,12 +51,9 @@ export function computeVisibilityGraph(
     id: phase1Id,
     name: 'Initialization',
     description:
-      'We begin by defining the nodes (vertices) of our graph. These include the Start point, the Goal point, and all corner vertices of the obstacles.',
+      'We begin by defining the nodes (vertices) of our graph. These include the start point, the goal point, and all vertices of the obstacles.',
     pseudocode: `// 1. Define Vertices
-V = {start, goal} + Vertices(Obstacles)
-
-// 2. Initialize Graph
-G = (V, E) where E = {}`,
+V = {start, goal} + Vertices(obstacles)`,
     complexity: 'O(V)',
     startStepIndex: startIdx1,
     endStepIndex: steps.length - 1,
@@ -131,13 +128,13 @@ G = (V, E) where E = {}`,
     name: 'Building Visibility Graph',
     description:
       'We construct the edges of the graph by checking the line of sight (LOS) between every pair of vertices. An edge exists if and only if the straight line segment between the two vertices does not intersect any obstacle. The intersection check uses the Counter-Clockwise (CCW) orientation test to determine if two line segments cross.',
-    pseudocode: `For each pair (u, v) in V:
-  If LOS(u, v) is not Blocked by any Obstacle Edge:
-    Add edge (u, v) to G
+    pseudocode: `For each pair of vertices (u, v) in V:
+    If LOS(u, v) is clear (does not intersect any obstacle edge):
+        Add edge (u, v) to G
 
-// LOS Check Detail:
+# LOS check helper:
 function SegmentsIntersect(A, B, C, D):
-  Return CCW(A, C, D) != CCW(B, C, D) && CCW(A, B, C) != CCW(A, B, D)`,
+    return CCW(A, C, D) != CCW(B, C, D) AND CCW(A, B, C) != CCW(A, B, D)`,
     complexity: 'O(V^3)',
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
@@ -160,15 +157,22 @@ function SegmentsIntersect(A, B, C, D):
     id: phase3Id,
     name: 'A* Search',
     description:
-      'With the complete visibility graph built, the A* search algorithm is used to find the shortest path from the Start node to the Goal node. A* minimizes the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal, serving as an admissible heuristic.',
-    pseudocode: `OpenSet = {start}
-While OpenSet not empty:
-  Current = Node with lowest F-score (g + h)
-  If Current == Goal: Reconstruct Path
-  For each neighbor:
-    Calculate tentative g-score
-    If tentative g < g[neighbor]:
-      Update scores and set parent`,
+      'With the complete visibility graph built, the A* search algorithm is used to find the shortest path from the start node to the goal node. A* minimizes the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal, serving as an admissible heuristic.',
+    pseudocode: `OpenSet = {Start}
+gScore[Start] = 0
+fScore[Start] = h(Start, Goal)
+
+While OpenSet is not empty:
+    Current = node in OpenSet with lowest fScore
+    If Current == Goal:
+        Reconstruct path and return
+    For each neighbor of Current in G:
+        tentative_g = gScore[Current] + distance(Current, neighbor)
+        If tentative_g < gScore[neighbor]:
+            gScore[neighbor] = tentative_g
+            fScore[neighbor] = tentative_g + h(neighbor, Goal)
+            Parent[neighbor] = Current
+            Add neighbor to OpenSet`,
     complexity: 'O(E log V)',
     startStepIndex: startIdx3,
     endStepIndex: steps.length - 1,

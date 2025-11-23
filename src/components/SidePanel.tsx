@@ -151,7 +151,7 @@ export default function SidePanel() {
 
         {/* Resize Handle */}
         <div
-          className="absolute right-0 top-0 w-2 rounded-full h-full cursor-col-resize hover:bg-blue-400/50 transition-colors z-20"
+          className="absolute right-0 top-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400/50 transition-colors z-20"
           onMouseDown={startResizing}
         />
       </div>

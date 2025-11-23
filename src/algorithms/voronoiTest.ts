@@ -29,7 +29,6 @@ export function computeVoronoi(
   };
 
   // --- PHASE 1: SAMPLING ---
-
   const phase1Id = 'sampling';
   const startIdx1 = steps.length;
 
@@ -71,17 +70,34 @@ export function computeVoronoi(
     id: phase1Id,
     name: 'Sampling',
     description:
-      'We generate a cloud of points to serve as sites for the Voronoi diagram. Points are sampled along the canvas boundary and the edges of every obstacle.',
-    pseudocode: `Sites = {Start, Goal}
-For each edge in Obstacles + Bounds:
-  Add points at interval D`,
-    complexity: 'O(N/D)',
+      'We begin by generating a large set of sample points (sites) that will define the Voronoi diagram. These include: start and goal positions, points sampled at regular intervals along the canvas boundaries, and points sampled along each obstacle edge. These sites form the input to the Delaunay triangulation and Voronoi diagram computation.',
+    pseudocode: `
+Sites = empty set
+Add Start to Sites
+Add Goal to Sites
+
+// Sample world boundaries at interval D
+For x = 0 → width step D:
+    Add point (x, 0) and (x, height) to Sites
+For y = 0 → height step D:
+    Add point (0, y) and (width, y) to Sites
+
+// Sample each obstacle edge
+For each polygon P in Obstacles:
+    For each edge (A, B) in P:
+        dist = length(A, B)
+        samples = ceil(dist / D)
+        For s = 0 → samples:
+            t = s / samples
+            sample = A + t * (B - A)
+            Add sample to Sites
+`,
+    complexity: 'O((N + boundaryLength + obstaclePerimeter)/D)',
     startStepIndex: startIdx1,
     endStepIndex: steps.length - 1,
   });
 
   // --- PHASE 2: DIAGRAM GENERATION ---
-
   const phase2Id = 'diagram';
   const startIdx2 = steps.length;
 
@@ -101,18 +117,15 @@ For each edge in Obstacles + Bounds:
     if (!cell) continue;
 
     for (let j = 0; j < cell.length - 1; j++) {
-      // cell includes closure point usually
       const p1 = { x: cell[j][0], y: cell[j][1] };
       const p2 = { x: cell[j + 1][0], y: cell[j + 1][1] };
 
-      // Filter out edges that are technically at infinity or bounds (simplified check)
       if (Math.abs(p1.x) < 0.1 || Math.abs(p1.y) < 0.1 || Math.abs(p1.x - width) < 0.1) continue;
 
       const k1 = getKeyString(p1);
       const k2 = getKeyString(p2);
       if (k1 === k2) continue;
 
-      // Unique key for edge
       const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
       if (!edgeSet.has(edgeKey)) {
         edgeSet.add(edgeKey);
@@ -128,38 +141,44 @@ For each edge in Obstacles + Bounds:
     id: phase2Id,
     name: 'Voronoi Diagram',
     description:
-      'We compute the Voronoi diagram (dual of Delaunay triangulation). The edges of the Voronoi cells represent paths that are equidistant from the nearest obstacles, naturally maximizing clearance.',
-    pseudocode: `Compute Delaunay(Sites)
-Construct Dual Graph (Voronoi)
-Extract Edges`,
-    complexity: 'O(N log N)',
+      'We construct a Voronoi diagram from the sampled sites using the Delaunay triangulation. The edges of Voronoi cells represent paths that are maximally far from obstacles.',
+    pseudocode: `
+D = DelaunayTriangulation(Sites)
+V = VoronoiDiagram(D)
+
+Edges = empty set
+For each Site i:
+    Cell = VoronoiCell(i)
+    For each consecutive pair (A, B) in Cell boundary:
+        If A == B: continue
+        If A or B lies at infinity or canvas boundary: skip
+        Add edge (A, B) to Edges (if not already added)
+`,
+    complexity: 'O(S log S)',
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
   });
 
   // --- PHASE 3: FILTERING & CONNECTION ---
-
   const phase3Id = 'filtering';
   const startIdx3 = steps.length;
 
-  // Connect Start/Goal to their enclosing Voronoi cell
-  // The edges added here are pushed to rawEdges, to be filtered next.
+  // Connect Start/Goal to Voronoi cells
   const connectToCell = (siteIdx: number, origin: Point) => {
     const cell = voronoi.cellPolygon(siteIdx);
     if (!cell) return;
     for (const [cx, cy] of cell) {
-      const p = { x: cx, y: cy }; // Don't add if it's a boundary point
+      const p = { x: cx, y: cy };
       if (p.x <= 1 || p.x >= width - 1 || p.y <= 1 || p.y >= height - 1) continue;
       rawEdges.push([origin, p]);
     }
   };
 
-  // Index 0 is Start, Index 1 is Goal (based on insertion order)
   connectToCell(0, start);
   connectToCell(1, goal);
   addStep(phase3Id, 'Connected Start and Goal to the graph.');
 
-  // Filter Edges against Obstacles
+  // Filter edges against obstacles
   const graph = new Map<string, Point[]>();
 
   const lineIntersectsPoly = (a: Point, b: Point, poly: Point[]) => {
@@ -220,12 +239,25 @@ Extract Edges`,
     id: phase3Id,
     name: 'Filtering',
     description:
-      'We remove edges that intersect obstacles or the canvas boundary. Without a margin, the path runs directly along the Voronoi edges and obstacle boundaries.',
-    pseudocode: `For each edge (u, v):
-  If Intersects(u, v, Obstacles):
-    Discard
-  Else:
-    AddToGraph(u, v)`,
+      'Before searching, the Voronoi graph must be cleaned. We connect Start and Goal to the Voronoi cells surrounding them, then remove any edge that intersects obstacles or lies outside the canvas interior. Remaining edges form the adjacency graph for pathfinding.',
+    pseudocode: `
+function ConnectSiteToVoronoiGraph(SiteIndex, SitePoint):
+    Cell = VoronoiCell(SiteIndex)
+    For each vertex V in Cell:
+        If V is inside canvas (margin > 0):
+            Add (SitePoint, V) to Edges
+
+Connect Start and Goal
+For each edge (A, B) in Edges:
+    If A or B outside canvas: skip
+    blocked = false
+    For each obstacle P:
+        If segment(A, B) intersects P:
+            blocked = true
+    If not blocked:
+        Graph[A].push(B)
+        Graph[B].push(A)
+`,
     complexity: 'O(E * V_obs)',
     startStepIndex: startIdx3,
     endStepIndex: steps.length - 1,
@@ -247,8 +279,15 @@ Extract Edges`,
   phases.push({
     id: phase4Id,
     name: 'A* Search',
-    description: 'Find the shortest path through the remaining valid Voronoi edges.',
-    pseudocode: 'AStar(Start, Goal, Graph)',
+    description:
+      'Run A* search on the cleaned Voronoi graph from Start to Goal. The graph nodes are Voronoi vertices and edges are collision-free line segments.',
+    pseudocode: `
+Path = AStar(Start, Goal, Graph)
+If Path exists:
+    return Path
+Else:
+    return failure
+`,
     complexity: 'O(E log V)',
     startStepIndex: startIdx4,
     endStepIndex: steps.length - 1,
