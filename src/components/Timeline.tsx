@@ -1,12 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
-import { MdPause, MdPlayArrow, MdSkipNext, MdSkipPrevious } from 'react-icons/md';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { MdPause, MdPlayArrow, MdSkipNext, MdSkipPrevious, MdFirstPage, MdLastPage } from 'react-icons/md';
 import { useStore } from '../utils/store';
 
 export default function Timeline() {
   const {
-    timeline, phases, currentStep, isPlaying, fps,
-    setCurrentStep, setIsPlaying, setFps,
-    hoveredPhaseId, setHoveredPhaseId
+    timeline,
+    phases,
+    currentStep,
+    isPlaying,
+    fps,
+    setCurrentStep,
+    setIsPlaying,
+    setFps,
+    hoveredPhaseId,
+    setHoveredPhaseId,
   } = useStore();
 
   const trackRef = useRef<HTMLDivElement>(null);
@@ -46,7 +53,6 @@ export default function Timeline() {
     });
   }, [currentStep, totalFrames, phases, isDragging]);
 
-
   // Playback Loop
   useEffect(() => {
     if (!isPlaying) return;
@@ -61,20 +67,21 @@ export default function Timeline() {
   }, [currentStep, fps, totalFrames, isPlaying, setCurrentStep, setIsPlaying]);
 
   // Click/Drag Logic
-  const handleTimelineInteraction = (e: React.MouseEvent | MouseEvent) => {
-    if (!trackRef.current || totalFrames === 0) return;
-    const rect = trackRef.current.getBoundingClientRect();
-    const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const percentage = x / rect.width;
+  const handleTimelineInteraction = useCallback(
+    (e: React.MouseEvent | MouseEvent) => {
+      if (!trackRef.current || totalFrames === 0) return;
+      const rect = trackRef.current.getBoundingClientRect();
+      const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+      const percentage = x / rect.width;
 
-    // Calculate the nearest step index (frame) that contains the click percentage
-    const step = Math.max(0, Math.min(totalFrames - 1, Math.floor(percentage * totalFrames)));
+      const step = Math.max(0, Math.min(totalFrames - 1, Math.floor(percentage * totalFrames)));
 
-    setCurrentStep(step);
+      setCurrentStep(step);
 
-    // Stop playback if user manually drags/clicks
-    if (isPlaying) setIsPlaying(false);
-  };
+      if (isPlaying) setIsPlaying(false);
+    },
+    [trackRef, totalFrames, isPlaying, setCurrentStep, setIsPlaying]
+  );
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
@@ -92,12 +99,11 @@ export default function Timeline() {
       window.removeEventListener('mouseup', handleUp);
       window.removeEventListener('mousemove', handleMove);
     };
-  }, [isDragging, totalFrames, isPlaying]);
+  }, [isDragging, totalFrames, isPlaying, handleTimelineInteraction]);
 
   return (
-    <div className='p-2 pt-0 disable-selection'>
-      <div className="w-full h-auto rounded-lg border border-black/15 p-4 flex flex-col gap-3 shadow-[0_0_15px_-3px_rgba(0,0,0,0.1)] z-20">
-
+    <div className="p-2 pt-0 disable-selection">
+      <div className="w-full h-auto rounded-lg border border-black/15 p-4 flex flex-col gap-3 shadow-lg">
         {/* Current Action Message */}
         <div className="flex justify-between items-end">
           <div className="h-4">
@@ -120,7 +126,7 @@ export default function Timeline() {
           onMouseDown={handleMouseDown}
         >
           <div className="absolute inset-0 flex w-full h-full gap-1">
-            {phases.map(phase => {
+            {phases.map((phase) => {
               const duration = phase.endStepIndex - phase.startStepIndex + 1;
               const widthPct = (duration / totalFrames) * 100;
 
@@ -136,7 +142,9 @@ export default function Timeline() {
                 >
                   {/* Phase Name Popup */}
                   {phase.id === hoveredPhaseId && (
-                    <span className='absolute top-[-32px] text-xs bg-gray-900/60 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap'>{phase.name}</span>
+                    <span className="absolute top-[-32px] text-xs bg-gray-900/60 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
+                      {phase.name}
+                    </span>
                   )}
                 </div>
               );
@@ -149,7 +157,7 @@ export default function Timeline() {
             style={{
               left: scrubberStyle.left,
               width: scrubberStyle.width,
-              transition: 'all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+              transition: 'all 0.1s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
             }}
           />
         </div>
@@ -157,29 +165,72 @@ export default function Timeline() {
         {/* Controls Row */}
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-2">
-            <button onClick={() => setCurrentStep(Math.max(0, currentStep - 1))} className="p-2 rounded-full hover:bg-gray-200 text-gray-600"><MdSkipPrevious /></button>
+            {/* Skip to Start */}
+            <button onClick={() => setCurrentStep(0)} className="p-2 rounded-full hover:bg-gray-200 text-gray-600">
+              <MdFirstPage />
+            </button>
+
+            {/* Previous */}
             <button
-              className={`flex items-center gap-2 pl-5 pr-6 py-2 rounded-full font-semibold transition-all shadow-sm ${isPlaying ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
+              onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+              className="p-2 rounded-full hover:bg-gray-200 text-gray-600"
+            >
+              <MdSkipPrevious />
+            </button>
+
+            {/* Play / Pause */}
+            <button
+              className={`flex items-center gap-2 pl-5 pr-6 py-2 rounded-full font-semibold transition-all shadow-sm ${
+                isPlaying
+                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
               onClick={() => {
                 if (!isPlaying && currentStep >= totalFrames - 1) setCurrentStep(0);
                 setIsPlaying(!isPlaying);
               }}
             >
-              {isPlaying ? <><MdPause /> Pause</> : <><MdPlayArrow /> Play</>}
+              {isPlaying ? (
+                <>
+                  <MdPause /> Pause
+                </>
+              ) : (
+                <>
+                  <MdPlayArrow /> Play
+                </>
+              )}
             </button>
-            <button onClick={() => setCurrentStep(Math.min(totalFrames - 1, currentStep + 1))} className="p-2 rounded-full hover:bg-gray-200 text-gray-600"><MdSkipNext /></button>
+
+            {/* Next */}
+            <button
+              onClick={() => setCurrentStep(Math.min(totalFrames - 1, currentStep + 1))}
+              className="p-2 rounded-full hover:bg-gray-200 text-gray-600"
+            >
+              <MdSkipNext />
+            </button>
+
+            {/* Skip to End */}
+            <button
+              onClick={() => setCurrentStep(totalFrames - 1)}
+              className="p-2 rounded-full hover:bg-gray-200 text-gray-600"
+            >
+              <MdLastPage />
+            </button>
           </div>
 
           {/* FPS */}
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-gray-400">Animation Speed: {fps} fps</label>
+              <label className="text-xs font-bold text-gray-400">Animation Speed:</label>
               <input
-                type="range" min="1" max="60" value={fps}
+                type="range"
+                min="1"
+                max="60"
+                value={fps}
                 onChange={(e) => setFps(Number(e.target.value))}
                 className="w-24 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
+              <p className="text-xs text-gray-400">{fps} fps</p>
             </div>
           </div>
         </div>

@@ -1,6 +1,5 @@
-// components/Header.tsx
-import { MdRefresh } from 'react-icons/md';
 import { useStore } from '../utils/store';
+import type { AlgorithmType } from '../utils/types';
 
 export default function Header() {
   const { mode, setMode, algorithm, setAlgorithm, setPolygons, setIsComplete, setCurrentPoints } = useStore();
@@ -23,15 +22,17 @@ export default function Header() {
         <div className="flex bg-gray-100/80 p-1 rounded-lg border border-gray-200">
           <button
             onClick={() => setMode('edit')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all ${mode === 'edit' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all ${
+              mode === 'edit' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
           >
             Draw
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all ${mode === 'delete' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium cursor-pointer transition-all ${
+              mode === 'delete' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
           >
             Delete
           </button>
@@ -42,7 +43,7 @@ export default function Header() {
         {/* Algorithm Select */}
         <select
           value={algorithm}
-          onChange={(e) => setAlgorithm(e.target.value as any)}
+          onChange={(e) => setAlgorithm(e.target.value as AlgorithmType)}
           className="bg-gray-100/80 border-none rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
         >
           <option value="visibility">Visibility Graph</option>

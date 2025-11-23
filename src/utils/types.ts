@@ -1,11 +1,9 @@
-// utils/types.ts
 export interface Point {
   x: number;
   y: number;
 }
 
 export interface Parameters {
-  obstacleMargin: number; // For inflating obstacles
   voronoiSampleDist: number;
 }
 
@@ -13,7 +11,6 @@ export interface Parameters {
 export interface AlgorithmStep {
   phaseId: string; // Links step to a high-level phase
   message: string;
-  codeLine?: number; // For highlighting pseudocode
 
   // State Snapshots
   vertices: Point[];

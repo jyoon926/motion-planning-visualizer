@@ -1,4 +1,3 @@
-// utils/store.ts
 import { create } from 'zustand';
 import type {
   AlgorithmStep,
@@ -85,7 +84,7 @@ interface AppState {
   setHoveredPhaseId: (id: string | null) => void;
 }
 
-export const useStore = create<AppState>((set, get) => ({
+export const useStore = create<AppState>((set) => ({
   // Initial State
   polygons: [],
   currentPoints: [],
@@ -94,7 +93,6 @@ export const useStore = create<AppState>((set, get) => ({
   goalPoint: { x: 500, y: 200 },
 
   params: {
-    obstacleMargin: 0,
     voronoiSampleDist: 20,
   },
 
@@ -118,7 +116,7 @@ export const useStore = create<AppState>((set, get) => ({
   phases: [],
   currentStep: -1,
   isPlaying: false,
-  fps: 10,
+  fps: 5,
 
   hoveredPhaseId: null,
   activePhaseId: null,

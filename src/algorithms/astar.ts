@@ -1,6 +1,5 @@
-// algorithms/astar.ts
 import { getKeyString, heuristic } from '../utils/common';
-import type { Point, AlgorithmStep } from '../utils/types';
+import type { Point } from '../utils/types';
 
 interface StarNode {
   pnt: Point;
@@ -10,12 +9,7 @@ interface StarNode {
   parent: Point;
 }
 
-export function runAStar(
-  start: Point,
-  goal: Point,
-  graph: Map<string, Point[]>,
-  emit: (msg: string, meta: Partial<AlgorithmStep>) => void
-): Point[] {
+export function runAStar(start: Point, goal: Point, graph: Map<string, Point[]>): Point[] {
   if (graph.size < 2) return [];
 
   const open = new Map<string, StarNode>();

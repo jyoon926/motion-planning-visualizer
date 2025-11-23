@@ -20,16 +20,8 @@ const algorithms = {
 };
 
 function App() {
-  const {
-    algorithm,
-    startPoint,
-    goalPoint,
-    polygons,
-    canvasSize,
-    params,
-    setTimelineData,
-    setCurrentStep
-  } = useStore();
+  const { algorithm, startPoint, goalPoint, polygons, canvasSize, params, setTimelineData, setCurrentStep } =
+    useStore();
 
   useEffect(() => {
     if (canvasSize.width === 0 || canvasSize.height === 0) return;
@@ -37,26 +29,11 @@ function App() {
     const selectedAlgo = algorithms[algorithm as AlgorithmType];
     if (!selectedAlgo) return;
 
-    const { steps, phases } = selectedAlgo.algorithm(
-      startPoint,
-      goalPoint,
-      polygons,
-      canvasSize,
-      params
-    );
+    const { steps, phases } = selectedAlgo.algorithm(startPoint, goalPoint, polygons, canvasSize, params);
 
     setTimelineData(steps, phases);
-    setCurrentStep(0);
-  }, [
-    polygons,
-    startPoint,
-    goalPoint,
-    algorithm,
-    canvasSize,
-    params,
-    setTimelineData,
-    setCurrentStep
-  ]);
+    setCurrentStep(steps.length - 1);
+  }, [polygons, startPoint, goalPoint, algorithm, canvasSize, params, setTimelineData, setCurrentStep]);
 
   return (
     <div className="w-full h-screen flex flex-col overflow-hidden">

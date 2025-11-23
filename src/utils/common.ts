@@ -1,4 +1,3 @@
-// utils/common.ts
 import type { Point } from './types';
 
 export function getKeyString(p: Point): string {

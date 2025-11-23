@@ -12,18 +12,18 @@ const THEME = {
     stroke: '#94a3b8',
     hover: '#3b82f6',
     delete: '#ef4444',
-    deleteFill: 'rgba(239, 68, 68, 0.2)'
+    deleteFill: 'rgba(239, 68, 68, 0.2)',
   },
   active: {
     line: '#3b82f6',
     check: '#f59e0b',
     valid: '#10b981',
-    invalid: '#ef4444'
+    invalid: '#ef4444',
   },
   graph: {
-    edge: 'rgba(203, 213, 225, 0.6)',
-    node: '#94a3b8'
-  }
+    edge: 'rgba(203, 213, 225, 1)',
+    node: '#94a3b8',
+  },
 };
 
 const dist = (p1: Point, p2: Point) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
@@ -42,11 +42,26 @@ export default function Canvas() {
 
   const state = useStore();
   const {
-    polygons, currentPoints, isComplete, startPoint, goalPoint,
-    mode, cursor, canvasSize, mousePos,
-    hoveredPoint, hoveredPolygon, hoveredSpecialPoint,
-    draggedPoint, draggedSpecialPoint, isDraggingPolygon, dragOffset, hasDragged,
-    timeline, currentStep, canvasTooltip
+    polygons,
+    currentPoints,
+    isComplete,
+    startPoint,
+    goalPoint,
+    mode,
+    cursor,
+    canvasSize,
+    mousePos,
+    hoveredPoint,
+    hoveredPolygon,
+    hoveredSpecialPoint,
+    draggedPoint,
+    draggedSpecialPoint,
+    isDraggingPolygon,
+    dragOffset,
+    hasDragged,
+    timeline,
+    currentStep,
+    canvasTooltip,
   } = state;
 
   useEffect(() => {
@@ -68,8 +83,7 @@ export default function Canvas() {
 
     // Cleanup function
     return () => observer.unobserve(container);
-  }, [state.setCanvasSize, canvasSize.width, canvasSize.height]);
-
+  }, [state, canvasSize.width, canvasSize.height]);
 
   // Main Draw Cycle
   useEffect(() => {
@@ -255,9 +269,7 @@ export default function Canvas() {
 
     drawSpecial(startPoint, 'S', '#10B981', hoveredSpecialPoint === 'start');
     drawSpecial(goalPoint, 'G', '#F59E0B', hoveredSpecialPoint === 'goal');
-
-  }, [state, canvasSize]); // Re-run draw when store state or canvasSize changes
-
+  });
 
   // Interaction Helpers
   const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
@@ -286,8 +298,10 @@ export default function Canvas() {
     if (poly.length < 3) return false;
     let inside = false;
     for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const xi = poly[i].x, yi = poly[i].y;
-      const xj = poly[j].x, yj = poly[j].y;
+      const xi = poly[i].x,
+        yi = poly[i].y;
+      const xj = poly[j].x,
+        yj = poly[j].y;
       const intersect = yi > pos.y !== yj > pos.y && pos.x < ((xj - xi) * (pos.y - yi)) / (yj - yi) + xi;
       if (intersect) inside = !inside;
     }
@@ -301,7 +315,7 @@ export default function Canvas() {
     return null;
   };
 
-  // Event Handlers 
+  // Event Handlers
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getMousePos(e);
@@ -319,7 +333,8 @@ export default function Canvas() {
 
     // Check Polygon Vertices
     const point = getPointAtPosition(pos);
-    if (mode === 'edit' || mode === 'delete') { // Allow dragging/hovering points in delete mode too
+    if (mode === 'edit' || mode === 'delete') {
+      // Allow dragging/hovering points in delete mode too
       if (point !== null) {
         state.setDraggedPoint(point);
         state.setDragOffset({
@@ -330,7 +345,8 @@ export default function Canvas() {
       } else {
         // 3. Check Polygon Bodies
         const polyIdx = getPolygonAtPosition(pos);
-        if (polyIdx !== null && mode === 'edit') { // Only drag polygon in edit mode
+        if (polyIdx !== null && mode === 'edit') {
+          // Only drag polygon in edit mode
           state.setIsDraggingPolygon(polyIdx);
           state.setDragOffset({ x: pos.x, y: pos.y });
           state.setCursor('grabbing');
@@ -387,7 +403,7 @@ export default function Canvas() {
       state.setCursor('grab');
       state.setHoveredPoint(null);
       state.setHoveredPolygon(null);
-      tip = specialPt === 'start' ? "Start Point" : "Goal Point";
+      tip = specialPt === 'start' ? 'Start Point' : 'Goal Point';
     } else {
       // Hover Vertices
       const point = getPointAtPosition(pos);
@@ -396,14 +412,14 @@ export default function Canvas() {
       if (point) {
         state.setCursor(mode === 'edit' ? 'grab' : 'pointer');
         state.setHoveredPolygon(null);
-        tip = mode === 'delete' ? "Click to delete obstacle vertex" : "Drag to move obstacle vertex";
+        tip = mode === 'delete' ? 'Click to delete obstacle vertex' : 'Drag to move obstacle vertex';
       } else {
         // Hover Polygons
         const polyIdx = getPolygonAtPosition(pos);
         if (polyIdx !== null) {
           state.setHoveredPolygon({ polygonIdx: polyIdx, type: 'body' });
           state.setCursor(mode === 'edit' || mode === 'delete' ? 'grab' : 'pointer');
-          tip = mode === 'delete' ? "Click to delete obstacle" : "Drag to move obstacle";
+          tip = mode === 'delete' ? 'Click to delete obstacle' : 'Drag to move obstacle';
         } else {
           state.setHoveredPolygon(null);
           state.setCursor('crosshair');
@@ -417,11 +433,11 @@ export default function Canvas() {
 
       // Check Active Node
       if (step.activeNode && dist(pos, step.activeNode) < 10) {
-        tip = "Current Node being processed";
+        tip = 'Current Node being processed';
       }
       // Check Active Edge
       else if (step.activeEdge && distToSegment(pos, step.activeEdge[0], step.activeEdge[1]) < 8) {
-        tip = "Connection being verified";
+        tip = 'Connection being verified';
       }
     }
 
@@ -486,7 +502,7 @@ export default function Canvas() {
     <div ref={containerRef} className="p-2 pl-0 pt-0 relative w-full flex-1 overflow-hidden disable-selection">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block touch-none"
+        className="w-full h-full block border border-black/15 rounded-lg shadow-lg touch-none"
         style={{ cursor }}
         width={canvasSize.width}
         height={canvasSize.height}
