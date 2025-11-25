@@ -98,4 +98,47 @@ export class BinarySearchTree<T> {
       return undefined;
     }
   }
+
+  delete(root: BinarySearchTreeNode<T> | undefined, data: T): BinarySearchTreeNode<T> | undefined {
+    
+    if (root === undefined) return undefined;
+
+    const cmp = this.comparator(data, root.data);
+
+    if (cmp < 0) {
+        // value is in the left subtree
+        root.leftNode = this.delete(root.leftNode, data);
+        return root;
+
+    } else if (cmp > 0) {
+        // value is in the right subtree
+        root.rightNode = this.delete(root.rightNode, data);
+        return root;
+
+    } else {
+        // found the node to delete
+        if (!root.leftNode && !root.rightNode) {
+            return undefined;
+        }
+
+        if (!root.leftNode) {
+            return root.rightNode;
+        }
+
+        if (!root.rightNode) {
+            return root.leftNode;
+        }
+
+        let successor = root.rightNode;
+        while (successor.leftNode !== undefined) {
+            successor = successor.leftNode;
+        }
+
+        root.data = successor.data;
+        root.rightNode = this.delete(root.rightNode, successor.data);
+
+        return root;
+    }
+  }
+
 }
