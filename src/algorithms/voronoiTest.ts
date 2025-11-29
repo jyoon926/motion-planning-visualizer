@@ -101,41 +101,59 @@ For each polygon P in Obstacles:
   const phase2Id = 'diagram';
   const startIdx2 = steps.length;
 
-  const delaunay = Delaunay.from(
-    vertices,
-    (d) => d.x,
-    (d) => d.y
-  );
-  const voronoi = delaunay.voronoi([0, 0, width, height]);
+  // manual voronoi creation starts here
+  const triangles = manualDelaunay(vertices)
 
-  // Extract raw edges from Voronoi
-  const rawEdges: [Point, Point][] = [];
-  const edgeSet = new Set<string>();
+  const rawTriangleEdges: [Point, Point][] = [];
 
-  for (let i = 0; i < vertices.length; i++) {
-    const cell = voronoi.cellPolygon(i);
-    if (!cell) continue;
-
-    for (let j = 0; j < cell.length - 1; j++) {
-      const p1 = { x: cell[j][0], y: cell[j][1] };
-      const p2 = { x: cell[j + 1][0], y: cell[j + 1][1] };
-
-      if (Math.abs(p1.x) < 0.1 || Math.abs(p1.y) < 0.1 || Math.abs(p1.x - width) < 0.1) continue;
-
-      const k1 = getKeyString(p1);
-      const k2 = getKeyString(p2);
-      if (k1 === k2) continue;
-
-      const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
-      if (!edgeSet.has(edgeKey)) {
-        edgeSet.add(edgeKey);
-        rawEdges.push([p1, p2]);
-      }
-    }
+  for (const tri of triangles) {
+    rawTriangleEdges.push([tri.p1, tri.p2])
+    rawTriangleEdges.push([tri.p3, tri.p2])
+    rawTriangleEdges.push([tri.p1, tri.p3])
   }
 
-  edges = rawEdges;
-  addStep(phase2Id, `Computed Voronoi Diagram. Generated ${rawEdges.length} candidate edges.`);
+  edges = rawTriangleEdges;
+  addStep(phase2Id, `Computed delaunay traingulation. Generated some triangles.`);
+
+  const vorEdges = manualVoronoi(triangles, start, goal)
+  edges = vorEdges;
+  addStep(phase2Id, 'Computed voronoi edges.')
+
+  // const delaunay = Delaunay.from(
+  //   vertices,
+  //   (d) => d.x,
+  //   (d) => d.y
+  // );
+  // const voronoi = delaunay.voronoi([0, 0, width, height]);
+
+  // // Extract raw edges from Voronoi
+  // const rawEdges: [Point, Point][] = [];
+  // const edgeSet = new Set<string>();
+
+  // for (let i = 0; i < vertices.length; i++) {
+  //   const cell = voronoi.cellPolygon(i);
+  //   if (!cell) continue;
+
+  //   for (let j = 0; j < cell.length - 1; j++) {
+  //     const p1 = { x: cell[j][0], y: cell[j][1] };
+  //     const p2 = { x: cell[j + 1][0], y: cell[j + 1][1] };
+
+  //     if (Math.abs(p1.x) < 0.1 || Math.abs(p1.y) < 0.1 || Math.abs(p1.x - width) < 0.1) continue;
+
+  //     const k1 = getKeyString(p1);
+  //     const k2 = getKeyString(p2);
+  //     if (k1 === k2) continue;
+
+  //     const edgeKey = k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+  //     if (!edgeSet.has(edgeKey)) {
+  //       edgeSet.add(edgeKey);
+  //       rawEdges.push([p1, p2]);
+  //     }
+  //   }
+  // }
+
+  // edges = rawEdges;
+  // addStep(phase2Id, `Computed Voronoi Diagram. Generated ${rawEdges.length} candidate edges.`);
 
   phases.push({
     id: phase2Id,
@@ -163,20 +181,21 @@ For each Site i:
   const phase3Id = 'filtering';
   const startIdx3 = steps.length;
 
-  // Connect Start/Goal to Voronoi cells
-  const connectToCell = (siteIdx: number, origin: Point) => {
-    const cell = voronoi.cellPolygon(siteIdx);
-    if (!cell) return;
-    for (const [cx, cy] of cell) {
-      const p = { x: cx, y: cy };
-      if (p.x <= 1 || p.x >= width - 1 || p.y <= 1 || p.y >= height - 1) continue;
-      rawEdges.push([origin, p]);
-    }
-  };
+  // // Connect Start/Goal to Voronoi cells
+  // const connectToCell = (siteIdx: number, origin: Point) => {
+  //   const cell = voronoi.cellPolygon(siteIdx);
+  //   if (!cell) return;
+  //   for (const [cx, cy] of cell) {
+  //     const p = { x: cx, y: cy };
+  //     if (p.x <= 1 || p.x >= width - 1 || p.y <= 1 || p.y >= height - 1) continue;
+  //     vorEdges.push([origin, p]);
+  //   }
+  // };
 
-  connectToCell(0, start);
-  connectToCell(1, goal);
-  addStep(phase3Id, 'Connected Start and Goal to the graph.');
+  // // This may only be working since it defines the cell around the start as 0 and the cell around the goal as 1
+  // connectToCell(0, start);
+  // connectToCell(1, goal);
+  // addStep(phase3Id, 'Connected Start and Goal to the graph.');
 
   // Filter edges against obstacles
   const graph = new Map<string, Point[]>();
@@ -203,7 +222,7 @@ For each Site i:
 
   edges = [];
 
-  for (const [p1, p2] of rawEdges) {
+  for (const [p1, p2] of vorEdges) {
     let blocked = false;
 
     if (
@@ -314,5 +333,212 @@ function isPointInPoly(p: Point, poly: Point[]): boolean {
     const intersect = yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
     if (intersect) inside = !inside;
   }
+
   return inside;
 }
+
+type Triangle = {
+  p1: Point;
+  p2: Point;
+  p3: Point;
+};
+
+type Edge = [Point, Point]
+
+// Returns true if point p lies inside circumcircle of triangle t
+function pointInCircumcircle(p: Point, t: Triangle): boolean {
+  const { p1, p2, p3 } = t;
+
+  const ax = p1.x - p.x;
+  const ay = p1.y - p.y;
+  const bx = p2.x - p.x;
+  const by = p2.y - p.y;
+  const cx = p3.x - p.x;
+  const cy = p3.y - p.y;
+
+  const det =
+      (ax * ax + ay * ay) * (bx * cy - cx * by) -
+      (bx * bx + by * by) * (ax * cy - cx * ay) +
+      (cx * cx + cy * cy) * (ax * by - bx * ay);
+
+  // triangle orientation (positive = CCW)
+  const orient = (p2.x - p1.x) * (p3.y - p1.y) -
+                  (p2.y - p1.y) * (p3.x - p1.x);
+
+  // If triangle is CW, the determinant flips sign
+  return orient > 0 ? det > 0 : det < 0;
+}
+
+// Creates a canonical ordered edge representation so duplicates can be removed
+function canonicalEdge(p1: Point, p2: Point): Edge {
+  return (p1.x < p2.x || (p1.x === p2.x && p1.y <= p2.y))
+    ? [p1, p2] : [p2, p1];
+}
+
+function sameEdge(e1: Edge, e2: Edge): boolean {
+  return (e1[0].x === e2[0].x && e1[0].y === e2[0].y &&
+          e1[1].x === e2[1].x && e1[1].y === e2[1].y);
+}
+
+function manualDelaunay(points: Point[]): Triangle[] {
+  // Start with a single large supertriangle that encloses all the points
+  const minX = Math.min(...points.map(p => p.x));
+  const maxX = Math.max(...points.map(p => p.x));
+  const minY = Math.min(...points.map(p => p.y));
+  const maxY = Math.max(...points.map(p => p.y));
+
+  const dx = maxX - minX;
+  const dy = maxY - minY;
+  const deltaMax = Math.max(dx, dy) * 10;
+
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+
+  const p1 = { x: midX - deltaMax, y: midY - deltaMax };
+  const p2 = { x: midX,            y: midY + deltaMax };
+  const p3 = { x: midX + deltaMax, y: midY - deltaMax };
+
+  let triangles: Triangle[] = [
+    {p1, p2, p3}
+  ];
+
+  // Insert the points one at a time
+  for (const point of points) {
+    const badTriangles: Triangle[] = [];
+
+    // Find all triangles whose circumcircle contains the given point
+    for (const tri of triangles) {
+      if (pointInCircumcircle(point, tri)) {
+        badTriangles.push(tri);
+      }
+    }
+
+    // Find all boundary edges of the polygonal hole
+    const boundaryEdges: Edge[] = [];
+
+    for (const tri of badTriangles) {
+      const edges: Edge[] = [
+        canonicalEdge(tri.p1, tri.p2),
+        canonicalEdge(tri.p2, tri.p3),
+        canonicalEdge(tri.p3, tri.p1)
+      ];
+
+      for (const e of edges) {
+        const idx = boundaryEdges.findIndex(edge => sameEdge(edge, e));
+        if (idx === -1) {
+          boundaryEdges.push(e);
+        } else {
+          boundaryEdges.splice(idx, 1);
+        }
+      }
+    }
+
+    // Remove the "bad" triangles
+    triangles = triangles.filter(t => !badTriangles.includes(t));
+
+    // Create new triangles that replace the bad triangles removed
+    for (const [a, b] of boundaryEdges) {
+      triangles.push({ p1: a, p2: b, p3: point });
+    }
+  }
+
+  // Do last cleanup, removing triangles touching the original supertriangle points
+  triangles = triangles.filter(
+    t =>
+      t.p1 !== p1 &&
+      t.p2 !== p1 &&
+      t.p3 !== p1 &&
+      t.p1 !== p2 &&
+      t.p2 !== p2 &&
+      t.p3 !== p2 &&
+      t.p1 !== p3 &&
+      t.p2 !== p3 &&
+      t.p3 !== p3
+  );
+
+  return triangles;
+}
+
+function getCircumcenter(a: Point, b: Point, c: Point): Point {
+  const d = 2 * (a.x * (b.y - c.y) +
+                 b.x * (c.y - a.y) +
+                 c.x * (a.y - b.y));
+
+  const ux =
+    ((a.x ** 2 + a.y ** 2) * (b.y - c.y) +
+     (b.x ** 2 + b.y ** 2) * (c.y - a.y) +
+     (c.x ** 2 + c.y ** 2) * (a.y - b.y)) / d;
+
+  const uy =
+    ((a.x ** 2 + a.y ** 2) * (c.x - b.x) +
+     (b.x ** 2 + b.y ** 2) * (a.x - c.x) +
+     (c.x ** 2 + c.y ** 2) * (b.x - a.x)) / d;
+
+  return { x: ux, y: uy };
+}
+
+function edgeKey(a: Point, b: Point): string {
+  // canonical ordering
+  const p = a.x < b.x || (a.x === b.x && a.y <= b.y) ? a : b;
+  const q = p === a ? b : a;
+  return `${p.x},${p.y}-${q.x},${q.y}`;
+}
+
+function triangleContains(triangle: Triangle, target: Point): boolean {
+  const a = triangle.p1;
+  const b = triangle.p2;
+  const c = triangle.p3;
+  return (a.x === target.x && a.y === target.y) ||
+         (b.x === target.x && b.y === target.y) ||
+         (c.x === target.x && c.y === target.y);
+}
+
+function manualVoronoi(triangles: Triangle[], start: Point, goal: Point): Edge[] {
+
+  // Find circumcenters of each triangle
+  const circumcenters = new Map<Triangle, Point>();
+
+  for (const tri of triangles) {
+    const circumcenter = getCircumcenter(tri.p1, tri.p2, tri.p3)
+    circumcenters.set(tri, circumcenter)
+  }
+
+  // Create adjacenecy for triangles
+  const edgeMap = new Map<string, Triangle[]>();
+  const vorEdges: Edge[] = [];
+
+  for (const tri of triangles) {
+    const edges: Edge[] = [
+      [tri.p1, tri.p2],
+      [tri.p2, tri.p3],
+      [tri.p3, tri.p1]
+    ];
+
+    // Add start and goal edges
+    if (triangleContains(tri, start)) {
+      vorEdges.push([start, circumcenters.get(tri)!])
+    }
+    if (triangleContains(tri, goal)) {
+      vorEdges.push([goal, circumcenters.get(tri)!])
+    }
+
+    for (const [a, b] of edges) {
+      const key = edgeKey(a, b);
+
+      if (!edgeMap.has(key)) edgeMap.set(key, []);
+      edgeMap.get(key)!.push(tri);
+    }
+  }
+
+  for (const [_, tris] of edgeMap.entries()) {
+    if (tris.length === 2) {
+      const c1 = circumcenters.get(tris[0]);
+      const c2 = circumcenters.get(tris[1]);
+      vorEdges.push([c1!, c2!]);
+    }
+  }
+
+  return vorEdges
+
+}
+
