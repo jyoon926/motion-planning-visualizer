@@ -39,11 +39,13 @@ export function computeVisibilityGraph(
 
   // 1. Add Start and Goal Points
   currentVertices.push(start, goal);
+  console.log("Added start ", start, " and goal ", goal);
   addStep(phase1Id, 'Added Start and Goal points to the set of vertices.');
 
   // 2. Add Obstacle Vertices
   const allObstacleVertices = polygons.flat();
   currentVertices.push(...allObstacleVertices);
+  console.log("Added obstacle vertices", allObstacleVertices);
 
   addStep(
     phase1Id,
@@ -70,9 +72,11 @@ V = {start, goal} + Vertices(obstacles)`,
   const phase2Id = 'visibility';
   const startIdx2 = steps.length;
 
-  // FAST IMPLEMENTATION: Add visible edges
-  for (let p = 0; p < currentVertices.length; p++){
-    findVisibleEdges(p, currentVertices, polygons).forEach((edge: [Point, Point]) => {
+  // FAST IMPLEMENTATION: Add visible edges between polygons
+
+  //TODO: Polygon points must be listed in clockwise order
+  for (let p = 0; p < polygons.flat().length; p++){
+    findVisibleEdges(p, polygons.flat(), polygons).forEach((edge: [Point, Point]) => {
       currentEdges.push(edge)
       vgraph.get(getKeyString(edge[0]))?.push(edge[1]);
       vgraph.get(getKeyString(edge[1]))?.push(edge[0]);
@@ -92,6 +96,86 @@ V = {start, goal} + Vertices(obstacles)`,
     pseudocode: `For each vertice v in V:
     TODO describe rotational plane sweep algorithm`,
     complexity: 'O(e^2 log e)',
+    startStepIndex: startIdx2,
+    endStepIndex: steps.length - 1,
+  });
+
+  // Manually add start and goal vertices to visibility graph
+  const ccw = (A: Point, B: Point, C: Point): boolean => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+  const segmentsIntersect = (A: Point, B: Point, C: Point, D: Point): boolean =>
+    ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D);
+
+  const isVisible = (p1: Point, p2: Point): boolean => {
+    for (const polygon of polygons) {
+      let selfIntersectionCounter = 0; // TODO we can get rid of this for single vertice checking
+      for (let i = 0; i < polygon.length; i++) {
+        const a = polygon[i];
+        const b = polygon[(i + 1) % polygon.length];
+
+        if (
+          (a.x === p1.x && a.y === p1.y) ||
+          (b.x === p1.x && b.y === p1.y) ||
+          (a.x === p2.x && a.y === p2.y) ||
+          (b.x === p2.x && b.y === p2.y)
+        ) {
+          selfIntersectionCounter++;
+          continue;
+        }
+        if (segmentsIntersect(p1, p2, a, b)) return false;
+      }
+      // Check if the line segment is inside the polygon
+      if (selfIntersectionCounter > 3) return false;
+    }
+    return true;
+  };
+
+  const singleVertices = [start, goal];
+  for (let i = 0; i < currentVertices.length; i++) {
+    for (let j = 0; j < singleVertices.length; j++) {
+      if (i === j) {continue;}
+      const v1 = currentVertices[i];
+      const v2 = singleVertices[j];
+
+      addStep(
+        phase2Id,
+        `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
+        {
+          scanLine: [v1, v2],
+          activeState: 'checking',
+        }
+      );
+
+      if (isVisible(v1, v2)) {
+        currentEdges.push([v1, v2]);
+        vgraph.get(getKeyString(v1))?.push(v2);
+        vgraph.get(getKeyString(v2))?.push(v1);
+       
+        addStep(phase2Id, 'Line of sight is clear. Edge added.', {
+          activeEdge: [v1, v2],
+          activeState: 'valid',
+        });
+      } else {
+        addStep(phase2Id, 'Line of sight blocked by obstacle.', {
+          scanLine: [v1, v2],
+          activeState: 'invalid',
+        });
+      }
+    }
+  }
+
+  phases.push({
+    id: phase2Id,
+    name: 'Adding Start/Goal to Visibility Graph',
+    description:
+      'We construct the edges to Start and Goal nodes by checking the line of sight (LOS) to every other vertice. An edge exists if and only if the straight line segment between the two vertices does not intersect any obstacle. The intersection check uses the Counter-Clockwise (CCW) orientation test to determine if two line segments cross.',
+    pseudocode: `For each pair of vertices (u, v) in V:
+    If LOS(u, v) is clear (does not intersect any obstacle edge):
+        Add edge (u, v) to G
+
+# LOS check helper:
+function SegmentsIntersect(A, B, C, D):
+    return CCW(A, C, D) != CCW(B, C, D) AND CCW(A, B, C) != CCW(A, B, D)`,
+    complexity: 'O(V^3)',
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
   });
@@ -272,42 +356,43 @@ function findVisibleEdges(currP: number, vertices: Point[], polygons: Point[][])
   }
 
   // DEBUGGING Note: isVisible is the main problem (works when replaced with naive)
-  const isVisible = (p: Point, w: number): boolean => {
+  const isVisible = (p: Point, w: number, pointList : any): boolean => {
+    const wPoint = vertices[pointList[w][0]];
     // if intersects interior of obstacle of which wi is vertex then return false
-    const incidents = incidentEdges.get(getKeyString(vertices[w]));
+    const incidents = incidentEdges.get(getKeyString(wPoint));
     if (incidents !== undefined && incidents.length > 1){
       const wprev = incidents[0];
       const wnext = incidents[1];
-      if (orientation(wprev, vertices[w], p) > 0 &&
-          orientation(vertices[w], wnext, p) > 0){
+      if (orientation(wprev, wPoint, p) > 0 &&
+          orientation(wPoint, wnext, p) > 0){
         return false;
       }
     }
     
     console.log("isVisible: w=",w);
-    // if wi = 1 or wi-1 is not on the segment pwi
-    if (w === 1 || orientation(p, vertices[w], vertices[mod(w-1, vertices.length)]) !== 0){
+    // if wi = 0 or wi-1 is not on the segment pwi
+    if (w === 0 || orientation(p, wPoint, vertices[pointList[w-1][0]]) !== 0){
       // then search bst for the edge in the leftmost leaf
       let left = bst.leftmost(bst.root)?.data
       if (left == undefined){ 
         console.log("isVisible: undefined leftmost node", bst);
-        return false; 
+        return true;
       }
       if (left.edge == undefined){console.log("isVisible: leftmost edge undefined", left)}
       // if e exists and pwi instersects e return false
-      if (segmentsIntersect(left.edge[0], left.edge[1], p, vertices[w])){
+      if (segmentsIntersect(left.edge[0], left.edge[1], p, wPoint)){
         return false;
       } else { // else return true
         return true;
       }
     } else {
       // else if wi-1 is not visible return false
-      if (!isVisible(p, mod(w-1, vertices.length))){
+      if (!isVisible(p, w-1, pointList)){
         return false;
       // else search bst for an edge that intersects wi-1wi
       } else {
         // search bst for edge that intersects w-1,w
-        if (inOrderIntersection(bst, bst.root, vertices[mod(w-1, vertices.length)], vertices[w])){
+        if (inOrderIntersection(bst, bst.root, vertices[pointList[w-1][0]], wPoint)){
           // if edge exists, return false
           return false;
         } else {
@@ -420,10 +505,10 @@ function findVisibleEdges(currP: number, vertices: Point[], polygons: Point[][])
   const incidentEdges : Map<string, Point[]> = new Map();
   for (const p of polygons){
     const l = p.length;
-    console.log("add edges from polygon: ", p);
+    console.log("add edges to allEdges and incidentEdges from polygon: ", p);
     for (let i = 0; i < l; i++){
       allEdges.set(getEdgeKeyString(p[mod((i-1), l)], p[i]), [getEdgeKeyString(p[mod((i-2), l)], p[mod((i-1), l)]), getEdgeKeyString(p[i], p[mod((i+1), l)])]);
-      incidentEdges.set(getKeyString(p[i]), [p[mod((i-1), l)],p[mod((i+1), l)]]);
+      incidentEdges.set(getKeyString(p[i]), [p[mod((i-1), l)], p[mod((i+1), l)]]);
     } 
   }
 
@@ -435,16 +520,19 @@ function findVisibleEdges(currP: number, vertices: Point[], polygons: Point[][])
     }
   }
   pointAngles.sort((a, b) => a[1] - b[1]);
+  console.log("sorted pointAngles", pointAngles);
   
   // find obstacle edges intersected by P and store in bst
-  const halflineOrigin = {x:0, y:currPoint.y};
-  const halfline = [halflineOrigin, currPoint];
+  // supposed to be --> from p, this was the opposite direction
+  //const halflineOrigin = {x:0, y:currPoint.y};
+  //const halfline = [halflineOrigin, currPoint];
+  const halfline = [currPoint, {x:600, y:currPoint.y}] //TODO get canvas size instead of hard coded
   for (const e of allEdges.keys()){
     const currEdge = stringToEdge(e);
     if (currEdge == undefined) {console.log("line 390: stringToEdge function did not return an edge");}
     if(segmentsIntersect(currEdge[0], currEdge[1], halfline[0], halfline[1])) {
       const dir = rayDirection(0);
-      const d = intersectionDistance(halflineOrigin, dir, currEdge[0], currEdge[1]);
+      const d = intersectionDistance(currPoint, dir, currEdge[0], currEdge[1]);
       // insert in the order they intersect halfline (distance from origin)
       if (d !== null){
         console.log("inserting orginal edges into bst", bst)
@@ -453,12 +541,13 @@ function findVisibleEdges(currP: number, vertices: Point[], polygons: Point[][])
     }
   }
 
+  let w_index = 0;
   for (const w of pointAngles){
-      const wi = w[0];
-      const wPoint = vertices[wi];
+      //const wi = w[0];
+      const wPoint = vertices[w[0]];
       const wTheta = w[1];
       const dist = calculateDistance(wPoint);
-      if (isVisible(currPoint, wi)){
+      if (isVisible(currPoint, w_index, pointAngles)){
         visibleEdges.push([currPoint, wPoint]);
         let incidents = incidentEdges.get(getKeyString(wPoint));
         if (incidents !== undefined){
@@ -477,6 +566,7 @@ function findVisibleEdges(currP: number, vertices: Point[], polygons: Point[][])
           }
         }
       }
+    w_index++;
   }
 
   return visibleEdges;
