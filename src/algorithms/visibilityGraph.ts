@@ -72,9 +72,32 @@ V = {start, goal} + Vertices(obstacles)`,
   const phase2Id = 'visibility';
   const startIdx2 = steps.length;
 
-  // FAST IMPLEMENTATION: Add visible edges between polygons
+  // Sort points of each polygon in clockwise order
+  const sorted_polygons: Point[][] = [];
+  for (let pi = 0; pi < polygons.length; pi++){
+    const p = polygons[pi];
+    const pAngles: [number, number][] = [];
+    let centroid: Point = {x:0, y:0};
+    for (let v = 0; v < p.length; v++){
+      centroid.x += p[v].x;
+      centroid.y += p[v].y;
+    }
+    centroid.x = centroid.x / p.length;
+    centroid.y = centroid.y / p.length;
+    for (let v = 0; v < p.length; v++){
+      pAngles.push([v, Math.atan2(p[v].y - centroid.y, p[v].x - centroid.x)]);
+    }
+    pAngles.sort((a, b) => a[1] - b[1]);
+    const sorted_p = [];
+    for (let a = 0; a < pAngles.length; a++){
+      const angle: [number, number] = pAngles[a];
+      sorted_p.push(p[angle[0]]);
+    }
+    sorted_polygons.push(sorted_p);
+  }
+  polygons = sorted_polygons;
 
-  //TODO: Polygon points must be listed in clockwise order
+  // FAST IMPLEMENTATION: Add visible edges between polygons
   for (let p = 0; p < polygons.flat().length; p++){
     findVisibleEdges(p, polygons.flat(), polygons).forEach((edge: [Point, Point]) => {
       currentEdges.push(edge)
