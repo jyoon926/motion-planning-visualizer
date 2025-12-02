@@ -95,7 +95,7 @@ For each obstacle edge (A, B):
   let delaunayPointIndex = 0;
 
   // Delaunay triangulation with visualization
-  const triangles = manualDelaunay(vertices, (currentTris, newPoint, badTris, boundaryEdges, newTris) => {
+  const triangles = manualDelaunay(vertices, (currentTris, newPoint, badTris, _, newTris) => {
     const triArray: Array<[Point, Point, Point]> = currentTris.map((t) => [t.p1, t.p2, t.p3]);
 
     // Only show detailed steps in the middle section
