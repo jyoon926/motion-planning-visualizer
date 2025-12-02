@@ -20,8 +20,8 @@ export default function About({ onClose }: Props) {
         <div className="p-6 space-y-4 overflow-y-auto">
           <section className="space-y-3 text-black/60">
             <p>
-              Motion Planning is the problem of calculating a sequence of valid movements, or a path, for an agent
-              to travel from a start point to a goal point while avoiding obstacles.
+              Motion Planning is the problem of calculating a sequence of valid movements, or a path, for an agent to
+              travel from a start point to a goal point while avoiding obstacles.
             </p>
             <p>
               This visualizer helps you understand two fundamental and conceptually different approaches to solving this

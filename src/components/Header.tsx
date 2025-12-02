@@ -31,15 +31,17 @@ export default function Header() {
         <div className="flex bg-black/5 p-1 rounded-lg border border-black/10">
           <button
             onClick={() => setMode('edit')}
-            className={`px-3 py-1 rounded-md transition-all ${mode === 'edit' ? 'bg-white text-black shadow-sm' : 'text-black/50 hover:text-black/70'
-              }`}
+            className={`px-3 py-1 rounded-md transition-all ${
+              mode === 'edit' ? 'bg-white text-black shadow-sm' : 'text-black/50 hover:text-black/70'
+            }`}
           >
             Draw
           </button>
           <button
             onClick={() => setMode('delete')}
-            className={`px-3 py-1 rounded-md transition-all ${mode === 'delete' ? 'bg-white text-red-500 shadow-sm' : 'text-black/50 hover:text-black/70'
-              }`}
+            className={`px-3 py-1 rounded-md transition-all ${
+              mode === 'delete' ? 'bg-white text-red-500 shadow-sm' : 'text-black/50 hover:text-black/70'
+            }`}
           >
             Delete
           </button>

@@ -179,10 +179,9 @@ export default function Timeline() {
 
             {/* Play / Pause */}
             <button
-              className={`p-2 rounded-full font-semibold transition-all ${isPlaying
-                ? 'bg-black/10 text-black border-black'
-                : 'bg-black text-white hover:bg-black/80'
-                }`}
+              className={`p-2 rounded-full font-semibold transition-all ${
+                isPlaying ? 'bg-black/10 text-black border-black' : 'bg-black text-white hover:bg-black/80'
+              }`}
               onClick={() => {
                 if (!isPlaying && currentStep >= totalFrames - 1) setCurrentStep(0);
                 setIsPlaying(!isPlaying);
@@ -208,10 +207,7 @@ export default function Timeline() {
             </button>
 
             {/* Skip to End */}
-            <button
-              onClick={() => setCurrentStep(totalFrames - 1)}
-              className="p-2 rounded-full hover:bg-black/10"
-            >
+            <button onClick={() => setCurrentStep(totalFrames - 1)} className="p-2 rounded-full hover:bg-black/10">
               <MdLastPage />
             </button>
           </div>
@@ -228,7 +224,7 @@ export default function Timeline() {
                 onChange={(e) => setFps(Number(e.target.value))}
                 className="w-24 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
-              <p className='w-11 text-right'>{fps} fps</p>
+              <p className="w-11 text-right">{fps} fps</p>
             </div>
           </div>
         </div>

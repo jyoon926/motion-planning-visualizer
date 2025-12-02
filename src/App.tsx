@@ -73,8 +73,7 @@ function App() {
     if (algorithm !== 'compare' && selectedAlgo) {
       const output = algorithm === 'visibility' ? visOutput : vorOutput;
       setTimelineData(output.steps, output.phases);
-      if (polygons.length > 0)
-        setCurrentStep(Math.min(currentStep, output.steps.length - 1));
+      if (polygons.length > 0) setCurrentStep(Math.min(currentStep, output.steps.length - 1));
     }
 
     // Clear timeline for compare mode
