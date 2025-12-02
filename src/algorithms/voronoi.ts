@@ -69,80 +69,195 @@ export function computeVoronoi(
     id: phase1Id,
     name: 'Sampling',
     description:
-      'We begin by generating a large set of sample points (sites) that will define the Voronoi diagram. These include: start and goal positions, points sampled at regular intervals along the canvas boundaries, and points sampled along each obstacle edge. These sites form the input to the Delaunay triangulation and Voronoi diagram computation.',
-    pseudocode: `
-Sites = empty set
-Add Start to Sites
-Add Goal to Sites
+      'The first step is to generate the points that define the Voronoi diagram. We include the Start and Goal positions, plus we add a grid of points along the canvas boundaries and points sampled along the edges of every obstacle. These samples become the input to Delaunay triangulation.',
+    pseudocode: `Sites = {Start, Goal}
 
-// Sample world boundaries at interval D
-For x = 0 → width step D:
-    Add point (x, 0) and (x, height) to Sites
-For y = 0 → height step D:
-    Add point (0, y) and (width, y) to Sites
+For boundary at interval D:
+    Add boundary samples to Sites
 
-// Sample each obstacle edge
-For each polygon P in Obstacles:
-    For each edge (A, B) in P:
-        dist = length(A, B)
-        samples = ceil(dist / D)
-        For s = 0 → samples:
-            t = s / samples
-            sample = A + t * (B - A)
-            Add sample to Sites
-`,
-    complexity: 'O((N + boundaryLength + obstaclePerimeter)/D)',
+For each obstacle edge (A, B):
+    samples = ceil(length(A,B) / D)
+    For t from 0 to num_samples:
+        // Interpolate to get a point on the edge
+        P = A + t * (B - A) / num_samples
+        Add P to Sites`,
+    complexity: 'O(perimeter/D)',
     startStepIndex: startIdx1,
     endStepIndex: steps.length - 1,
   });
 
-  // --- PHASE 2: DIAGRAM GENERATION ---
-  const phase2Id = 'diagram';
+  // --- PHASE 2: DELAUNAY TRIANGULATION ---
+  const phase2Id = 'delaunay';
   const startIdx2 = steps.length;
 
-  // manual voronoi creation starts here
-  const triangles = manualDelaunay(vertices);
+  const DELAUNAY_START_SHOWING = Math.floor(vertices.length * 0.8);
+  const DELAUNAY_STOP_SHOWING = DELAUNAY_START_SHOWING + 5;
+  let delaunayPointIndex = 0;
 
-  const rawTriangleEdges: [Point, Point][] = [];
+  // Delaunay triangulation with visualization
+  const triangles = manualDelaunay(vertices, (currentTris, newPoint, badTris, boundaryEdges, newTris) => {
+    const triArray: Array<[Point, Point, Point]> = currentTris.map((t) => [t.p1, t.p2, t.p3]);
 
-  for (const tri of triangles) {
-    rawTriangleEdges.push([tri.p1, tri.p2]);
-    rawTriangleEdges.push([tri.p3, tri.p2]);
-    rawTriangleEdges.push([tri.p1, tri.p3]);
-  }
+    // Only show detailed steps in the middle section
+    const shouldShow = delaunayPointIndex >= DELAUNAY_START_SHOWING && delaunayPointIndex < DELAUNAY_STOP_SHOWING;
 
-  edges = rawTriangleEdges;
-  addStep(phase2Id, `Computed delaunay traingulation. Generated some triangles.`);
+    if (shouldShow) {
+      if (newPoint && !badTris && !newTris) {
+        addStep(
+          phase2Id,
+          `Inserting point ${delaunayPointIndex + 1}: (${Math.round(newPoint.x)}, ${Math.round(newPoint.y)})`,
+          {
+            triangles: triArray,
+            activeNode: newPoint,
+          }
+        );
+      }
 
-  const vorEdges = manualVoronoi(triangles, start, goal);
-  edges = vorEdges;
-  addStep(phase2Id, 'Computed voronoi edges.');
+      if (badTris && badTris.length > 0) {
+        const badTriArray: Array<[Point, Point, Point]> = badTris.map((t) => [t.p1, t.p2, t.p3]);
+
+        // Calculate circumcircles for visualization
+        const circumcircles = badTris.map((t) => {
+          const center = getCircumcenter(t.p1, t.p2, t.p3);
+          const radius = Math.hypot(center.x - t.p1.x, center.y - t.p1.y);
+          return { center, radius };
+        });
+
+        addStep(phase2Id, `Found ${badTris.length} triangle(s) whose circumcircle contains the new point`, {
+          triangles: triArray,
+          activeTriangles: badTriArray,
+          activeNode: newPoint,
+          circumcircles,
+        });
+      }
+
+      if (newTris && newTris.length > 0) {
+        const newTriArray: Array<[Point, Point, Point]> = newTris.map((t) => [t.p1, t.p2, t.p3]);
+        addStep(phase2Id, `Removed bad triangles and created ${newTris.length} new triangle(s)`, {
+          triangles: triArray,
+          newTriangles: newTriArray,
+          activeNode: newPoint,
+        });
+      }
+    }
+
+    // Increment only when we've finished processing a point (when newTris is provided)
+    if (newTris) {
+      delaunayPointIndex++;
+    }
+  });
+
+  const triArray: Array<[Point, Point, Point]> = triangles.map((t) => [t.p1, t.p2, t.p3]);
+  addStep(phase2Id, `Delaunay triangulation complete with ${triangles.length} triangles.`, {
+    triangles: triArray,
+  });
 
   phases.push({
     id: phase2Id,
-    name: 'Voronoi Diagram',
+    name: 'Delaunay Triangulation',
     description:
-      'We construct a Voronoi diagram from the sampled sites using the Delaunay triangulation. The edges of Voronoi cells represent paths that are maximally far from obstacles.',
-    pseudocode: `
-D = DelaunayTriangulation(Sites)
-V = VoronoiDiagram(D)
-
-Edges = empty set
-For each Site i:
-    Cell = VoronoiCell(i)
-    For each consecutive pair (A, B) in Cell boundary:
-        If A == B: continue
-        If A or B lies at infinity or canvas boundary: skip
-        Add edge (A, B) to Edges (if not already added)
-`,
-    complexity: 'O(S log S)',
+      'Then, we create a set of triangles (a triangulation) using the sites from Phase 1. We use the Bowyer-Watson algorithm, which ensures that the triangulation is Delaunay: no site is inside the circumcircle of any triangle. This property is crucial because it maximizes the minimum internal angle, leading to a "well-formed" and stable mesh. This mesh forms the geometric dual of the Voronoi diagram.',
+    pseudocode: `Triangulation = [SuperTriangle]
+For each point P:
+    BadTriangles = {T | P inside circumcircle(T)}
+    Boundary = unique edges of BadTriangles
+    Remove BadTriangles
+    For each boundary edge (A, B):
+        Add triangle (A, B, P)`,
+    complexity: 'O(n log n) expected',
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
   });
 
-  // --- PHASE 3: FILTERING & CONNECTION ---
-  const phase3Id = 'filtering';
+  // --- PHASE 3: VORONOI DIAGRAM ---
+  const phase3Id = 'voronoi';
   const startIdx3 = steps.length;
+
+  // Voronoi diagram construction with visualization
+  const circumcenters = new Map<Triangle, Point>();
+  const circumcenterArray: Point[] = [];
+  const allCircumcircles: Array<{ center: Point; radius: number }> = [];
+
+  const MAX_CIRCUMCENTER_STEPS = 10; // Show first 10 circumcenters
+  let circumcenterCount = 0;
+
+  for (const tri of triangles) {
+    const circumcenter = getCircumcenter(tri.p1, tri.p2, tri.p3);
+    const radius = Math.hypot(circumcenter.x - tri.p1.x, circumcenter.y - tri.p1.y);
+
+    circumcenters.set(tri, circumcenter);
+    circumcenterArray.push(circumcenter);
+    allCircumcircles.push({ center: circumcenter, radius });
+
+    if (circumcenterCount < MAX_CIRCUMCENTER_STEPS) {
+      addStep(phase3Id, `Circumcenter ${circumcenterCount + 1}/${triangles.length}: passes through all 3 vertices`, {
+        triangles: triArray,
+        activeTriangles: [[tri.p1, tri.p2, tri.p3]],
+        circumcenters: [...circumcenterArray],
+        activeCircumcenter: circumcenter,
+        circumcircles: [{ center: circumcenter, radius }],
+      });
+    }
+    circumcenterCount++;
+  }
+
+  addStep(phase3Id, `All ${triangles.length} circumcenters computed`, {
+    triangles: triArray,
+    circumcenters: circumcenterArray,
+  });
+
+  const MAX_VORONOI_EDGE_STEPS = 10; // Show first 10 edges
+  let voronoiEdgeStepCount = 0;
+
+  const vorEdges = manualVoronoi(triangles, start, goal, circumcenters, (edgesSoFar, newEdge, isConnectingSpecial) => {
+    if (!isConnectingSpecial && voronoiEdgeStepCount < MAX_VORONOI_EDGE_STEPS) {
+      edges = edgesSoFar;
+      addStep(phase3Id, `Voronoi edge ${edgesSoFar.length}: connecting adjacent circumcenters`, {
+        circumcenters: circumcenterArray,
+        activeEdge: newEdge,
+      });
+      voronoiEdgeStepCount++;
+    }
+  });
+
+  // Show start/goal connection in one step
+  edges = vorEdges;
+  const startGoalEdges: [Point, Point][] = [];
+  for (const edge of vorEdges) {
+    if (edge[0] === start || edge[0] === goal || edge[1] === start || edge[1] === goal) {
+      startGoalEdges.push(edge);
+    }
+  }
+
+  addStep(phase3Id, `Connected all Voronoi edges`, {
+    circumcenters: circumcenterArray,
+    activeEdge: startGoalEdges.length > 0 ? startGoalEdges[0] : undefined,
+  });
+
+  addStep(phase3Id, `Voronoi diagram complete: ${vorEdges.length} edges`, {
+    circumcenters: circumcenterArray,
+  });
+
+  phases.push({
+    id: phase3Id,
+    name: 'Voronoi Diagram',
+    description:
+      "The Voronoi diagram (or Voronoi Graph) is derived from the Delaunay triangulation. Each triangle's circumcenter becomes a Voronoi vertex. When two Delaunay triangles share an edge, their circumcenters are connected, forming a Voronoi edge. This creates a partitioning where each cell contains points closest to a specific site.",
+    pseudocode: `For each Delaunay triangle T:
+    Circumcenters[T] = Circumcenter(T)
+
+For each shared edge between triangles T1, T2:
+    Add edge (Circumcenters[T1], Circumcenters[T2])
+
+Connect Start and Goal to their respective cells`,
+    complexity: 'O(n)',
+    startStepIndex: startIdx3,
+    endStepIndex: steps.length - 1,
+  });
+
+  // --- PHASE 4: FILTERING & CONNECTION ---
+  const phase4Id = 'filtering';
+  const startIdx4 = steps.length;
 
   // Filter edges against obstacles
   const graph = new Map<string, Point[]>();
@@ -199,63 +314,53 @@ For each Site i:
     }
   }
 
-  addStep(phase3Id, `Filtered edges. ${validEdgesCount} edges remain valid (clear of obstacles).`);
+  addStep(phase4Id, `Filtered edges. ${validEdgesCount} edges remain valid (clear of obstacles).`);
 
   phases.push({
-    id: phase3Id,
+    id: phase4Id,
     name: 'Filtering',
     description:
-      'Before searching, the Voronoi graph must be cleaned. We connect Start and Goal to the Voronoi cells surrounding them, then remove any edge that intersects obstacles or lies outside the canvas interior. Remaining edges form the adjacency graph for pathfinding.',
-    pseudocode: `
-function ConnectSiteToVoronoiGraph(SiteIndex, SitePoint):
-    Cell = VoronoiCell(SiteIndex)
-    For each vertex V in Cell:
-        If V is inside canvas (margin > 0):
-            Add (SitePoint, V) to Edges
-
-Connect Start and Goal
-For each edge (A, B) in Edges:
+      'Not all Voronoi edges are valid for pathfinding. In this phase, we clean the graph by removing any edge that is blocked by an obstacle or that extends beyond the canvas boundaries. The remaining set of edges and circumcenters forms a safe, traversable, collision-free graph that the pathfinding algorithm will use.',
+    pseudocode: `Graph = empty
+For each Voronoi edge (A, B):
     If A or B outside canvas: skip
-    blocked = false
-    For each obstacle P:
-        If segment(A, B) intersects P:
-            blocked = true
-    If not blocked:
-        Graph[A].push(B)
-        Graph[B].push(A)
-`,
-    complexity: 'O(E * V_obs)',
-    startStepIndex: startIdx3,
+    If edge intersects any obstacle: skip
+    Add A→B and B→A to Graph`,
+    complexity: 'O(E * V_obstacles)',
+    startStepIndex: startIdx4,
     endStepIndex: steps.length - 1,
   });
 
-  // --- PHASE 4: SEARCH PATH ---
-  const phase4Id = 'search';
-  const startIdx4 = steps.length;
+  // --- PHASE 5: SEARCH PATH ---
+  const phase5Id = 'search';
+  const startIdx5 = steps.length;
 
   const foundPath = runAStar(start, goal, graph);
 
   if (foundPath.length > 0) {
     path = foundPath;
-    addStep(phase4Id, 'Path found!', { activeState: 'valid' });
+    addStep(phase5Id, 'Path found!', { activeState: 'valid' });
   } else {
-    addStep(phase4Id, 'No path found.', { activeState: 'invalid' });
+    addStep(phase5Id, 'No path found.', { activeState: 'invalid' });
   }
 
   phases.push({
-    id: phase4Id,
+    id: phase5Id,
     name: 'A* Search',
     description:
-      'Run A* search on the cleaned Voronoi graph from Start to Goal. The graph nodes are Voronoi vertices and edges are collision-free line segments.',
-    pseudocode: `
-Path = AStar(Start, Goal, Graph)
-If Path exists:
-    return Path
-Else:
-    return failure
-`,
+      'With the filtered, collision-free Voronoi graph, we now use the A* search algorithm to find the shortest path from Start to Goal. A* efficiently explores the graph by minimizing the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal.',
+    pseudocode: `OpenSet = {Start}, gScore[Start] = 0
+fScore[Start] = h(Start, Goal)
+
+While OpenSet not empty:
+    Current = node with lowest fScore
+    If Current == Goal: return path
+    For each neighbor of Current:
+        tentative_g = gScore[Current] + dist
+        If tentative_g < gScore[neighbor]:
+            Update scores and parent`,
     complexity: 'O(E log V)',
-    startStepIndex: startIdx4,
+    startStepIndex: startIdx5,
     endStepIndex: steps.length - 1,
   });
 
@@ -324,7 +429,16 @@ function sameEdge(e1: Edge, e2: Edge): boolean {
   return e1[0].x === e2[0].x && e1[0].y === e2[0].y && e1[1].x === e2[1].x && e1[1].y === e2[1].y;
 }
 
-function manualDelaunay(points: Point[]): Triangle[] {
+function manualDelaunay(
+  points: Point[],
+  onStep?: (
+    currentTriangles: Triangle[],
+    newPoint?: Point,
+    badTriangles?: Triangle[],
+    boundaryEdges?: Edge[],
+    newTriangles?: Triangle[]
+  ) => void
+): Triangle[] {
   // Start with a single large supertriangle that encloses all the points
   const minX = Math.min(...points.map((p) => p.x));
   const maxX = Math.max(...points.map((p) => p.x));
@@ -346,6 +460,8 @@ function manualDelaunay(points: Point[]): Triangle[] {
 
   // Insert the points one at a time
   for (const point of points) {
+    onStep?.(triangles, point);
+
     const badTriangles: Triangle[] = [];
 
     // Find all triangles whose circumcircle contains the given point
@@ -354,6 +470,8 @@ function manualDelaunay(points: Point[]): Triangle[] {
         badTriangles.push(tri);
       }
     }
+
+    onStep?.(triangles, point, badTriangles);
 
     // Find all boundary edges of the polygonal hole
     const boundaryEdges: Edge[] = [];
@@ -379,9 +497,14 @@ function manualDelaunay(points: Point[]): Triangle[] {
     triangles = triangles.filter((t) => !badTriangles.includes(t));
 
     // Create new triangles that replace the bad triangles removed
+    const newTriangles: Triangle[] = [];
     for (const [a, b] of boundaryEdges) {
-      triangles.push({ p1: a, p2: b, p3: point });
+      const newTri = { p1: a, p2: b, p3: point };
+      triangles.push(newTri);
+      newTriangles.push(newTri);
     }
+
+    onStep?.(triangles, point, undefined, boundaryEdges, newTriangles);
   }
 
   // Do last cleanup, removing triangles touching the original supertriangle points
@@ -433,16 +556,14 @@ function triangleContains(triangle: Triangle, target: Point): boolean {
   );
 }
 
-function manualVoronoi(triangles: Triangle[], start: Point, goal: Point): Edge[] {
-  // Find circumcenters of each triangle
-  const circumcenters = new Map<Triangle, Point>();
-
-  for (const tri of triangles) {
-    const circumcenter = getCircumcenter(tri.p1, tri.p2, tri.p3);
-    circumcenters.set(tri, circumcenter);
-  }
-
-  // Create adjacenecy for triangles
+function manualVoronoi(
+  triangles: Triangle[],
+  start: Point,
+  goal: Point,
+  circumcenters: Map<Triangle, Point>,
+  onStep?: (edges: Edge[], newEdge?: Edge, isConnectingSpecial?: boolean) => void
+): Edge[] {
+  // Create adjacency for triangles
   const edgeMap = new Map<string, Triangle[]>();
   const vorEdges: Edge[] = [];
 
@@ -453,27 +574,33 @@ function manualVoronoi(triangles: Triangle[], start: Point, goal: Point): Edge[]
       [tri.p3, tri.p1],
     ];
 
-    // Add start and goal edges
-    if (triangleContains(tri, start)) {
-      vorEdges.push([start, circumcenters.get(tri)!]);
-    }
-    if (triangleContains(tri, goal)) {
-      vorEdges.push([goal, circumcenters.get(tri)!]);
-    }
-
     for (const [a, b] of edges) {
       const key = edgeKey(a, b);
-
       if (!edgeMap.has(key)) edgeMap.set(key, []);
       edgeMap.get(key)!.push(tri);
     }
   }
 
+  // Create all regular Voronoi edges
   for (const [_, tris] of edgeMap.entries()) {
     if (tris.length === 2) {
       const c1 = circumcenters.get(tris[0]);
       const c2 = circumcenters.get(tris[1]);
-      vorEdges.push([c1!, c2!]);
+      const edge: Edge = [c1!, c2!];
+      vorEdges.push(edge);
+      onStep?.(vorEdges, edge, false);
+    }
+  }
+
+  // Connect start and goal (done outside, after this function returns)
+  for (const tri of triangles) {
+    if (triangleContains(tri, start)) {
+      const edge: Edge = [start, circumcenters.get(tri)!];
+      vorEdges.push(edge);
+    }
+    if (triangleContains(tri, goal)) {
+      const edge: Edge = [goal, circumcenters.get(tri)!];
+      vorEdges.push(edge);
     }
   }
 

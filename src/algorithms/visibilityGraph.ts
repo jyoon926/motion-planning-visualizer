@@ -173,22 +173,17 @@ function SegmentsIntersect(A, B, C, D):
     id: phase3Id,
     name: 'A* Search',
     description:
-      'With the complete visibility graph built, the A* search algorithm is used to find the shortest path from the start node to the goal node. A* minimizes the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal, serving as an admissible heuristic.',
-    pseudocode: `OpenSet = {Start}
-gScore[Start] = 0
+      'With the filtered, collision-free Voronoi graph, we now use the A* search algorithm to find the shortest path from Start to Goal. A* efficiently explores the graph by minimizing the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal.',
+    pseudocode: `OpenSet = {Start}, gScore[Start] = 0
 fScore[Start] = h(Start, Goal)
 
-While OpenSet is not empty:
-    Current = node in OpenSet with lowest fScore
-    If Current == Goal:
-        Reconstruct path and return
-    For each neighbor of Current in G:
-        tentative_g = gScore[Current] + distance(Current, neighbor)
+While OpenSet not empty:
+    Current = node with lowest fScore
+    If Current == Goal: return path
+    For each neighbor of Current:
+        tentative_g = gScore[Current] + dist
         If tentative_g < gScore[neighbor]:
-            gScore[neighbor] = tentative_g
-            fScore[neighbor] = tentative_g + h(neighbor, Goal)
-            Parent[neighbor] = Current
-            Add neighbor to OpenSet`,
+            Update scores and parent`,
     complexity: 'O(E log V)',
     startStepIndex: startIdx3,
     endStepIndex: steps.length - 1,

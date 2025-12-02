@@ -192,6 +192,115 @@ export default function Canvas() {
     else if (currentStep >= 0 && currentStep < timeline.length) {
       const step = timeline[currentStep];
 
+      // Draw Circumcircles (BEFORE triangles so they're underneath)
+      if (step.circumcircles) {
+        step.circumcircles.forEach(({ center, radius }) => {
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = hexToRgba(ACCENTS.amber, 0.4);
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 5]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
+
+      // Draw Delaunay Triangles
+      if (step.triangles) {
+        ctx.strokeStyle = THEME.graph.edge;
+        ctx.fillStyle = hexToRgba(GRAY[500], 0.03);
+        ctx.lineWidth = 1;
+
+        step.triangles.forEach((tri) => {
+          ctx.beginPath();
+          ctx.moveTo(tri[0].x, tri[0].y);
+          ctx.lineTo(tri[1].x, tri[1].y);
+          ctx.lineTo(tri[2].x, tri[2].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      // Draw Active Triangles (being processed/removed)
+      if (step.activeTriangles) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ACCENTS.red;
+        ctx.fillStyle = hexToRgba(ACCENTS.red, 0.15);
+
+        step.activeTriangles.forEach((tri) => {
+          ctx.beginPath();
+          ctx.moveTo(tri[0].x, tri[0].y);
+          ctx.lineTo(tri[1].x, tri[1].y);
+          ctx.lineTo(tri[2].x, tri[2].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      // Draw New Triangles (being added)
+      if (step.newTriangles) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ACCENTS.green;
+        ctx.fillStyle = hexToRgba(ACCENTS.green, 0.15);
+
+        step.newTriangles.forEach((tri) => {
+          ctx.beginPath();
+          ctx.moveTo(tri[0].x, tri[0].y);
+          ctx.lineTo(tri[1].x, tri[1].y);
+          ctx.lineTo(tri[2].x, tri[2].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      // Draw Circumcenters
+      if (step.circumcenters) {
+        ctx.fillStyle = ACCENTS.blue;
+        step.circumcenters.forEach((c) => {
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Draw Active Circumcenter
+      if (step.activeCircumcenter) {
+        ctx.beginPath();
+        ctx.arc(step.activeCircumcenter.x, step.activeCircumcenter.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = hexToRgba(ACCENTS.blue, 0.3);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ACCENTS.blue;
+        ctx.stroke();
+      }
+
+      // Draw Graph Edges
+      if (step.edges) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = THEME.graph.edge;
+        step.edges.forEach(([p1, p2]) => {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        });
+      }
+
+      // Draw Graph Edges
+      if (step.edges) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = THEME.graph.edge;
+        step.edges.forEach(([p1, p2]) => {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        });
+      }
+
       // Draw Graph Edges
       if (step.edges) {
         ctx.lineWidth = 1;

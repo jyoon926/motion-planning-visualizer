@@ -134,7 +134,7 @@ export const useStore = create<AppState>((set) => ({
   algorithm: 'visibility',
   timeline: [],
   phases: [],
-  currentStep: -1,
+  currentStep: 0,
   isPlaying: false,
   fps: 5,
 
@@ -180,7 +180,6 @@ export const useStore = create<AppState>((set) => ({
   setCurrentStep: (updater) =>
     set((state) => {
       const nextStep = typeof updater === 'function' ? updater(state.currentStep) : updater;
-      // Determine active phase based on step
       const activePhase = state.phases.find((p) => nextStep >= p.startStepIndex && nextStep <= p.endStepIndex);
       return {
         currentStep: nextStep,

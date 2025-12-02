@@ -7,7 +7,17 @@ const MIN_WIDTH = 300;
 const MAX_WIDTH = 600;
 
 export default function SidePanel() {
-  const { algorithm, phases, params, setParams, setCurrentStep, activePhaseId, setHoveredPhaseId, compareData } =
+  const {
+    algorithm,
+    phases,
+    params,
+    setParams,
+    currentStep, // <-- ADDED: Retrieve current step index
+    setCurrentStep,
+    activePhaseId,
+    setHoveredPhaseId,
+    compareData
+  } =
     useStore();
 
   const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
@@ -15,6 +25,7 @@ export default function SidePanel() {
   const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
+    // Keep the active phase expanded
     if (activePhaseId && expandedPhase !== activePhaseId) {
       setExpandedPhase(activePhaseId);
     }
@@ -48,8 +59,17 @@ export default function SidePanel() {
     setExpandedPhase(phase.id);
   };
 
+  const getPhaseProgress = (phase: AlgorithmPhase): number => {
+    const totalSteps = phase.endStepIndex - phase.startStepIndex + 1;
+    if (totalSteps <= 0) return 100;
+    const stepsInPhase = currentStep - phase.startStepIndex;
+    const progress = Math.max(0, Math.min(100, (stepsInPhase / totalSteps) * 100));
+    if (currentStep > phase.endStepIndex) return 100;
+    return Math.round(progress);
+  };
+
   const algorithmInfo = {
-    visibility: { title: 'Visibility Graph', complexity: 'Time: O(V^3) | Space: O(V^2)' },
+    visibility: { title: 'Visibility Graph', complexity: 'Time: O(V³) | Space: O(V²)' },
     voronoi: { title: 'Voronoi Diagram', complexity: 'Time: O(n log n) | Space: O(n)' },
     compare: { title: 'Algorithm Comparison', complexity: '' },
   };
@@ -98,7 +118,7 @@ export default function SidePanel() {
         </div>
       )}
 
-      {/* Comparison View */}
+      {/* Comparison View (omitted for brevity) */}
       {algorithm === 'compare' && (
         <div className="flex-1 overflow-y-auto p-4 pt-0 space-y-6">
           <div className="space-y-3">
@@ -153,6 +173,7 @@ export default function SidePanel() {
               {phases.map((phase) => {
                 const isActive = activePhaseId === phase.id;
                 const isExpanded = expandedPhase === phase.id;
+                const progress = getPhaseProgress(phase);
 
                 return (
                   <div
@@ -166,19 +187,29 @@ export default function SidePanel() {
                     {/* Phase Header */}
                     <button
                       onClick={() => (isExpanded ? setExpandedPhase(null) : jumpToPhase(phase))}
-                      className="w-full flex items-center justify-between p-3 text-left"
+                      className={`w-full p-3 text-left relative ${isActive && "border-b border-black/10"}`}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-6 rounded-full ${isActive ? 'bg-black' : 'bg-black/20'}`}></div>
-                        <span className={`font-bold ${isActive ? 'text-black' : 'text-black/50'}`}>
-                          {phase.name}
-                        </span>
-                      </div>
-                      {isExpanded ? (
-                        <MdExpandLess className="text-black/50 text-lg" />
-                      ) : (
-                        <MdExpandMore className="text-black/50 text-lg" />
+                      {/* Progress Bar */}
+                      {isActive && (
+                        <div
+                          className="absolute bottom-0 left-0 h-1 bg-black/10 transition-all duration-200"
+                          style={{ width: `${progress}%` }}
+                        />
                       )}
+
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-2 h-6 rounded-full ${isActive ? 'bg-black' : 'bg-black/20'}`}></div>
+                          <span className={`font-bold ${isActive ? 'text-black' : 'text-black/50'}`}>
+                            {phase.name}
+                          </span>
+                        </div>
+                        {isExpanded ? (
+                          <MdExpandLess className="text-black/50 text-lg" />
+                        ) : (
+                          <MdExpandMore className="text-black/50 text-lg" />
+                        )}
+                      </div>
                     </button>
 
                     {/* Collapsible Content */}
@@ -186,11 +217,11 @@ export default function SidePanel() {
                       className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
                         }`}
                     >
-                      <div className="p-4 pt-0 text-black/60 space-y-3">
+                      <div className="p-4 pt-3 text-black/60 space-y-3">
                         <p className="leading-relaxed">{phase.description}</p>
 
                         {/* Pseudocode Block */}
-                        <div className='rounded-lg border border-black/10 bg-black/5 overflow-hidden'>
+                        <div className='rounded-lg border border-black/10 bg-black/5'>
                           <div className="p-3 font-mono text-sm text-black/60 overflow-x-auto relative group">
                             <div className="absolute top-1 left-2 text-[10px] uppercase tracking-wider">
                               Pseudocode

@@ -152,7 +152,7 @@ export default function Timeline() {
 
           {/* Scrubber Knob */}
           <div
-            className="absolute top-0 h-full rounded-lg bg-black/20 border-2 border-black shadow-inner pointer-events-none z-10"
+            className="absolute top-0 h-full rounded-lg bg-black/20 border-2 border-black shadow-md pointer-events-none z-10"
             style={{
               left: scrubberStyle.left,
               width: scrubberStyle.width,
@@ -179,7 +179,7 @@ export default function Timeline() {
 
             {/* Play / Pause */}
             <button
-              className={`p-2 rounded-full font-semibold transition-all shadow-sm ${isPlaying
+              className={`p-2 rounded-full font-semibold transition-all ${isPlaying
                 ? 'bg-black/10 text-black border-black'
                 : 'bg-black text-white hover:bg-black/80'
                 }`}
@@ -223,7 +223,7 @@ export default function Timeline() {
               <input
                 type="range"
                 min="1"
-                max="60"
+                max="20"
                 value={fps}
                 onChange={(e) => setFps(Number(e.target.value))}
                 className="w-24 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-blue-600"
