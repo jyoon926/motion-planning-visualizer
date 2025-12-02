@@ -470,10 +470,63 @@ export default function Canvas() {
     if (!tip && currentStep >= 0 && currentStep < timeline.length) {
       const step = timeline[currentStep];
 
-      if (step.activeNode && dist(pos, step.activeNode) < 10) {
-        tip = 'Current Node being processed';
-      } else if (step.activeEdge && distToSegment(pos, step.activeEdge[0], step.activeEdge[1]) < 8) {
-        tip = 'Connection being verified';
+      // Check hover on final path
+      if (step.path && step.path.length > 1) {
+        for (let i = 0; i < step.path.length - 1; i++) {
+          if (distToSegment(pos, step.path[i], step.path[i + 1]) < 10) {
+            tip = 'Final Path';
+            break;
+          }
+        }
+      }
+
+      // Check hover on path points
+      if (!tip && step.path) {
+        for (const pt of step.path) {
+          if (dist(pos, pt) < 8) {
+            tip = 'Path Point';
+            break;
+          }
+        }
+      }
+
+      // Check hover on active edge (being verified)
+      if (!tip && step.activeEdge) {
+        if (distToSegment(pos, step.activeEdge[0], step.activeEdge[1]) < 8) {
+          tip = step.activeState === 'valid' ? 'Valid Edge' : 'Invalid Edge';
+        }
+      }
+
+      // Check hover on scan line (visibility check in progress)
+      if (!tip && step.scanLine) {
+        if (distToSegment(pos, step.scanLine[0], step.scanLine[1]) < 8) {
+          tip = step.activeState === 'invalid' ? 'Invalid Edge' : 'Visibility Check';
+        }
+      }
+
+      // Check hover on graph edges (computed edges)
+      if (!tip && step.edges) {
+        for (const [p1, p2] of step.edges) {
+          if (distToSegment(pos, p1, p2) < 6) {
+            tip = 'Graph Edge';
+            break;
+          }
+        }
+      }
+
+      // Check hover on graph vertices
+      if (!tip && step.vertices) {
+        for (let i = 0; i < step.vertices.length; i++) {
+          if (dist(pos, step.vertices[i]) < 8) {
+            tip = `Vertex ${i}`;
+            break;
+          }
+        }
+      }
+
+      // Check hover on active node (being processed in pathfinding)
+      if (!tip && step.activeNode && dist(pos, step.activeNode) < 10) {
+        tip = 'Active Node';
       }
     }
 

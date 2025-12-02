@@ -91,43 +91,59 @@ V = {start, goal} + Vertices(obstacles)`,
     return true;
   };
 
+  const NUM_SOURCE_POINTS = 3; // Show all edge checks for the first N source points
+
   for (let i = 0; i < currentVertices.length; i++) {
+    const shouldShowSource = i < NUM_SOURCE_POINTS;
+
     for (let j = i + 1; j < currentVertices.length; j++) {
       const v1 = currentVertices[i];
       const v2 = currentVertices[j];
+      const shouldShowStep = shouldShowSource;
 
-      addStep(
-        phase2Id,
-        `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
-        {
-          scanLine: [v1, v2],
-          activeState: 'checking',
-        }
-      );
+      if (shouldShowStep) {
+        addStep(
+          phase2Id,
+          `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
+          {
+            scanLine: [v1, v2],
+            activeState: 'checking',
+          }
+        );
+      }
 
       if (isVisible(v1, v2)) {
         currentEdges.push([v1, v2]);
         vgraph.get(getKeyString(v1))?.push(v2);
         vgraph.get(getKeyString(v2))?.push(v1);
 
-        addStep(phase2Id, 'Line of sight is clear. Edge added.', {
-          activeEdge: [v1, v2],
-          activeState: 'valid',
-        });
+        if (shouldShowStep) {
+          addStep(phase2Id, 'Line of sight is clear. Edge added.', {
+            activeEdge: [v1, v2],
+            activeState: 'valid',
+          });
+        }
       } else {
-        addStep(phase2Id, 'Line of sight blocked by obstacle.', {
-          scanLine: [v1, v2],
-          activeState: 'invalid',
-        });
+        if (shouldShowStep) {
+          addStep(phase2Id, 'Line of sight blocked by obstacle.', {
+            scanLine: [v1, v2],
+            activeState: 'invalid',
+          });
+        }
       }
     }
   }
+
+  // Add final frame showing complete graph
+  addStep(phase2Id, 'Visibility graph complete. All edges computed.', {
+    activeState: 'valid',
+  });
 
   phases.push({
     id: phase2Id,
     name: 'Building Visibility Graph',
     description:
-      'We construct the edges of the graph by checking the line of sight (LOS) between every pair of vertices. An edge exists if and only if the straight line segment between the two vertices does not intersect any obstacle. The intersection check uses the Counter-Clockwise (CCW) orientation test to determine if two line segments cross.',
+      'We check line of sight between vertices to build the graph. An edge connects two vertices only if the line segment between them is unobstructed. The visualization shows all checks from the first few source vertices.',
     pseudocode: `For each pair of vertices (u, v) in V:
     If LOS(u, v) is clear (does not intersect any obstacle edge):
         Add edge (u, v) to G
