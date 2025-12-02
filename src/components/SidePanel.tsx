@@ -54,94 +54,102 @@ export default function SidePanel() {
     compare: { title: 'Algorithm Comparison', complexity: '' },
   };
 
-  const visLength = compareData.visibility.pathLength.toFixed(2);
-  const vorLength = compareData.voronoi.pathLength.toFixed(2);
-  const lengthDiff = Math.abs(compareData.visibility.pathLength - compareData.voronoi.pathLength).toFixed(2);
+  const visLength = compareData.visibility.pathLength.toFixed(0);
+  const vorLength = compareData.voronoi.pathLength.toFixed(0);
+  const lengthDiff = Math.abs(compareData.visibility.pathLength - compareData.voronoi.pathLength).toFixed(0);
 
   return (
-    <div className="p-2 pt-0">
-      <div
-        className="h-full flex flex-col rounded-lg border border-black/15 shadow-lg relative flex-shrink-0 overflow-hidden"
-        style={{ width }}
-      >
-        {/* Header */}
-        <div className="p-4 border-b border-black/10 bg-white/40">
-          <h1 className="text-2xl font-bold text-gray-800 tracking-tight">{algorithmInfo[algorithm].title}</h1>
-          {algorithm !== 'compare' && (
-            <div className="mt-2 flex items-center gap-2 text-xs font-mono text-gray-500 bg-gray-100/50 p-2 rounded border border-black/10">
-              <MdInfoOutline className="text-blue-500 text-lg" />
-              {algorithmInfo[algorithm].complexity}
-            </div>
-          )}
-        </div>
-        {/* Comparison View */}
-        {algorithm === 'compare' ? (
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
-            <div className="space-y-3">
-              <h3 className="flex items-center gap-2 text-lg font-bold text-gray-800 border-b border-black/10 pb-1">
-                Path Lengths
-              </h3>
-              <div className="bg-white/70 p-4 rounded-xl shadow-inner border border-black/10 space-y-2">
-                <p className={`text-sm font-medium flex justify-between text-green-600`}>
-                  <span>Visibility Graph (Shortest Path):</span>
-                  <span className="font-mono text-base">{visLength} px</span>
-                </p>
-                <p className={`text-sm font-medium flex justify-between text-blue-600`}>
-                  <span>Voronoi Diagram (Max Clearance):</span>
-                  <span className="font-mono text-base">{vorLength} px</span>
-                </p>
-                <div className="pt-2 border-t mt-2">
-                  <p className="text-xs text-gray-500 font-medium">Difference: {lengthDiff}</p>
-                </div>
-              </div>
-            </div>
+    <div
+      className="h-full flex flex-col relative flex-shrink-0 overflow-hidden"
+      style={{ width }}
+    >
+      {/* Header */}
+      <div className="p-4">
+        <h1 className="text-2xl font-bold">{algorithmInfo[algorithm].title}</h1>
+        {algorithm !== 'compare' && (
+          <div className="mt-2 flex items-center gap-2 font-mono text-sm bg-black/5 py-2 px-3 rounded-lg border border-black/10">
+            <MdInfoOutline className="text-black/50 text-lg" />
+            {algorithmInfo[algorithm].complexity}
+          </div>
+        )}
+      </div>
 
-            <div className="space-y-3">
-              <h3 className="flex items-center gap-2 text-lg font-bold text-gray-800 border-b border-black/10 pb-1">
-                Conceptual Difference
-              </h3>
-              <div className="text-sm text-gray-600 space-y-4">
-                <p>
-                  The Visibility Graph algorithm finds the geometrically shortest path (minimum distance) between the
-                  start and goal points by only allowing travel along obstacle vertices.
-                </p>
-                <p>
-                  The Voronoi Diagram algorithm finds a path that maximizes the clearance (distance) to the nearest
-                  obstacle. This usually results in a longer, but much safer path for the robot.
-                </p>
-                <p className="font-semibold">
-                  <span className="text-green-600">Visibility Graph</span> often yields a shorter, but more risk-prone
-                  path near corners, while the
-                  <span className="text-blue-600"> Voronoi Diagram</span> guarantees the maximum safety margin.
-                </p>
-              </div>
+      {/* Algorithm Parameters */}
+      {(algorithm === 'voronoi' || algorithm === 'compare') && (
+        <div className="p-4 pt-0 space-y-4">
+          <div className='rounded-lg border border-black/10 py-2 px-3'>
+            <div className="flex items-center gap-2 font-semibold mb-2">
+              <MdSettings className='text-black/50' /> Parameters
+            </div>
+            <div className="flex items-center gap-3 text-sm text-black/50">
+              <label>Sample Distance:</label>
+              <input
+                type="range"
+                min="10"
+                max="50"
+                step="5"
+                value={params.voronoiSampleDist}
+                onChange={(e) => setParams({ voronoiSampleDist: Number(e.target.value) })}
+                className="flex-1 h-1 bg-black/10 rounded-lg appearance-none accent-blue-500"
+              />
+              <span className="w-10 text-right">{params.voronoiSampleDist}px</span>
             </div>
           </div>
-        ) : (
-          <>
-            {/* Algorithm Parameters */}
-            {algorithm == 'voronoi' && (
-              <div className="p-4 border-b border-black/10 bg-gray-50/50 space-y-4">
-                <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
-                  <MdSettings /> Parameters
-                </div>
-                <div className="flex items-center gap-1">
-                  <label className="text-xs font-medium text-gray-700 min-w-[100px]">Sample Dist:</label>
-                  <input
-                    type="range"
-                    min="10"
-                    max="100"
-                    value={params.voronoiSampleDist}
-                    onChange={(e) => setParams({ voronoiSampleDist: Number(e.target.value) })}
-                    className="flex-1 h-1 bg-gray-300 rounded-lg appearance-none accent-blue-500"
-                  />
-                  <span className="text-xs text-gray-400 w-8 text-right">{params.voronoiSampleDist}px</span>
-                </div>
-              </div>
-            )}
+        </div>
+      )}
 
-            {/* Phases List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      {/* Comparison View */}
+      {algorithm === 'compare' && (
+        <div className="flex-1 overflow-y-auto p-4 pt-0 space-y-6">
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              Path Lengths
+            </h3>
+            <div className="p-3 rounded-lg bg-black/5 border border-black/10 space-y-2">
+              <p className={`flex justify-between text-green-600`}>
+                <span className='font-bold'>Visibility Graph (Shortest Path):</span>
+                <span className="font-mono text-base">{visLength} px</span>
+              </p>
+              <p className={`flex justify-between text-blue-600`}>
+                <span className='font-bold'>Voronoi Diagram (Max Clearance):</span>
+                <span className="font-mono text-base">{vorLength} px</span>
+              </p>
+              <p className={`flex justify-between`}>
+                <span className='font-bold'>Difference:</span>
+                <span className="font-mono text-base">{lengthDiff} px</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="flex items-center gap-2 text-lg font-bold">
+              Conceptual Difference
+            </h3>
+            <div className="space-y-4">
+              <p className='text-black/60'>
+                The Visibility Graph algorithm finds the geometrically shortest path (minimum distance) between the
+                start and goal points by only allowing travel along obstacle vertices.
+              </p>
+              <p className='text-black/60'>
+                The Voronoi Diagram algorithm finds a path that maximizes the clearance (distance) to the nearest
+                obstacle. This usually results in a longer, but much safer path for the robot.
+              </p>
+              <p className="font-semibold">
+                <span className="text-green-600">Visibility Graph</span> often yields a shorter, but more risk-prone
+                path near corners, while the
+                <span className="text-blue-600"> Voronoi Diagram</span> guarantees the maximum safety margin.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phases List */}
+      {algorithm !== 'compare' && (
+        <div className='flex-1 px-4 overflow-hidden'>
+          <div className='h-full rounded-xl border border-black/10 overflow-hidden'>
+            <div className="h-full overflow-y-auto p-3 space-y-2">
+              <h3 className='font-bold text-lg'>Algorithm Phases</h3>
               {phases.map((phase) => {
                 const isActive = activePhaseId === phase.id;
                 const isExpanded = expandedPhase === phase.id;
@@ -149,9 +157,9 @@ export default function SidePanel() {
                 return (
                   <div
                     key={phase.id}
-                    className={`rounded-xl border transition-all duration-200 overflow-hidden
-                ${isActive ? 'border-blue-400/50 shadow-md bg-blue-50/30' : 'border-black/10 bg-white/40 hover:border-blue-300/30'}
-              `}
+                    className={`rounded-lg border transition-all duration-200 overflow-hidden
+                    ${isActive ? 'border-black/40 shadow-md' : 'border-black/10'}
+                  `}
                     onMouseEnter={() => setHoveredPhaseId(phase.id)}
                     onMouseLeave={() => setHoveredPhaseId(null)}
                   >
@@ -161,42 +169,43 @@ export default function SidePanel() {
                       className="w-full flex items-center justify-between p-3 text-left"
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-2 h-6 rounded-full ${isActive ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                        <span className={`font-semibold ${isActive ? 'text-blue-900' : 'text-gray-600'}`}>
+                        <div className={`w-2 h-6 rounded-full ${isActive ? 'bg-black' : 'bg-black/20'}`}></div>
+                        <span className={`font-bold ${isActive ? 'text-black' : 'text-black/50'}`}>
                           {phase.name}
                         </span>
                       </div>
                       {isExpanded ? (
-                        <MdExpandLess className="text-gray-400" />
+                        <MdExpandLess className="text-black/50 text-lg" />
                       ) : (
-                        <MdExpandMore className="text-gray-400" />
+                        <MdExpandMore className="text-black/50 text-lg" />
                       )}
                     </button>
 
                     {/* Collapsible Content */}
                     <div
-                      className={`transition-all duration-300 ease-in-out overflow-hidden ${
-                        isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
-                      }`}
+                      className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                        }`}
                     >
-                      <div className="p-4 pt-0 text-sm text-gray-600 space-y-3">
+                      <div className="p-4 pt-0 text-black/60 space-y-3">
                         <p className="leading-relaxed">{phase.description}</p>
 
                         {/* Pseudocode Block */}
-                        <div className="bg-gray-900 rounded-lg p-3 font-mono text-xs text-gray-300 overflow-x-auto shadow-inner relative group">
-                          <div className="absolute top-1 right-2 text-[10px] text-gray-500 uppercase tracking-wider">
-                            Pseudocode
+                        <div className='rounded-lg border border-black/10 bg-black/5 overflow-hidden'>
+                          <div className="p-3 font-mono text-sm text-black/60 overflow-x-auto relative group">
+                            <div className="absolute top-1 left-2 text-[10px] uppercase tracking-wider">
+                              Pseudocode
+                            </div>
+                            <pre className="mt-2">
+                              {phase.pseudocode.split('\n').map((line, idx) => (
+                                <div key={idx} className="px-1 rounded">
+                                  <span className="select-none w-4 inline-block text-right mr-3">
+                                    {idx + 1}
+                                  </span>
+                                  {line}
+                                </div>
+                              ))}
+                            </pre>
                           </div>
-                          <pre className="mt-2">
-                            {phase.pseudocode.split('\n').map((line, idx) => (
-                              <div key={idx} className="px-1 rounded">
-                                <span className="text-gray-600 select-none w-4 inline-block text-right mr-2">
-                                  {idx + 1}
-                                </span>
-                                {line}
-                              </div>
-                            ))}
-                          </pre>
                         </div>
                       </div>
                     </div>
@@ -204,15 +213,15 @@ export default function SidePanel() {
                 );
               })}
             </div>
-          </>
-        )}
+          </div>
+        </div>
+      )}
 
-        {/* Resize Handle */}
-        <div
-          className="absolute right-0 top-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400/50 transition-colors z-20"
-          onMouseDown={startResizing}
-        />
-      </div>
+      {/* Resize Handle */}
+      <div
+        className="absolute right-0 top-0 w-1.5 h-full rounded-full cursor-col-resize hover:bg-black/10 transition-colors z-20"
+        onMouseDown={startResizing}
+      />
     </div>
   );
 }

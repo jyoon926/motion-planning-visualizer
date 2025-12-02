@@ -5,7 +5,7 @@ import Canvas from './components/Canvas';
 import SidePanel from './components/SidePanel';
 import { useStore } from './utils/store';
 import { computeVisibilityGraph } from './algorithms/visibilityGraph';
-import { computeVoronoi } from './algorithms/voronoiTest';
+import { computeVoronoi } from './algorithms/voronoi';
 import type { AlgorithmType, Point } from './utils/types';
 import { dist } from './utils/common';
 import About from './components/About';

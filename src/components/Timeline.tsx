@@ -102,14 +102,14 @@ export default function Timeline() {
   }, [isDragging, totalFrames, isPlaying, handleTimelineInteraction]);
 
   return (
-    <div className="p-2 pt-0 disable-selection">
-      <div className="w-full h-auto rounded-lg border border-black/15 p-4 flex flex-col gap-3 shadow-lg">
+    <div className="disable-selection">
+      <div className="w-full h-auto p-4 flex flex-col gap-3">
         {/* Current Action Message */}
         <div className="flex justify-between items-end">
-          <div className="h-4">
+          <div className="h-5">
             {timeline.length > 0 && (
-              <p className="text-gray-700 font-medium text-sm animate-fade-in">
-                <span className="text-blue-500 font-bold mr-2">
+              <p className="animate-fade-in">
+                <span className="font-bold mr-2">
                   Frame {currentStep + 1} of {totalFrames}:
                 </span>
                 {timeline[currentStep].message}
@@ -133,7 +133,7 @@ export default function Timeline() {
                 <div
                   key={phase.id}
                   className={`h-full rounded-lg transition-colors duration-200 relative flex justify-center
-                    ${phase.id === hoveredPhaseId ? 'bg-blue-200' : 'bg-black/8'}
+                    ${phase.id === hoveredPhaseId ? 'bg-black/20' : 'bg-black/10'}
                   `}
                   style={{ width: `${widthPct}%` }}
                   onMouseEnter={() => setHoveredPhaseId(phase.id)}
@@ -141,7 +141,7 @@ export default function Timeline() {
                 >
                   {/* Phase Name Popup */}
                   {phase.id === hoveredPhaseId && (
-                    <span className="absolute top-[-32px] text-xs bg-gray-900/60 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
+                    <span className="absolute top-[-32px] text-xs bg-black/70 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
                       {phase.name}
                     </span>
                   )}
@@ -152,7 +152,7 @@ export default function Timeline() {
 
           {/* Scrubber Knob */}
           <div
-            className="absolute top-0 h-full rounded-lg bg-blue-500/30 border-2 border-blue-600 shadow-inner pointer-events-none z-10"
+            className="absolute top-0 h-full rounded-lg bg-black/20 border-2 border-black shadow-inner pointer-events-none z-10"
             style={{
               left: scrubberStyle.left,
               width: scrubberStyle.width,
@@ -163,27 +163,26 @@ export default function Timeline() {
 
         {/* Controls Row */}
         <div className="flex items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-1 items-center justify-center gap-2 text-xl">
             {/* Skip to Start */}
-            <button onClick={() => setCurrentStep(0)} className="p-2 rounded-full hover:bg-gray-200 text-gray-600">
+            <button onClick={() => setCurrentStep(0)} className="p-2 rounded-full hover:bg-black/10">
               <MdFirstPage />
             </button>
 
             {/* Previous */}
             <button
               onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-              className="p-2 rounded-full hover:bg-gray-200 text-gray-600"
+              className="p-2 rounded-full hover:bg-black/10"
             >
               <MdSkipPrevious />
             </button>
 
             {/* Play / Pause */}
             <button
-              className={`flex items-center gap-2 pl-5 pr-6 py-2 rounded-lg font-semibold transition-all shadow-sm ${
-                isPlaying
-                  ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
+              className={`p-2 rounded-full font-semibold transition-all shadow-sm ${isPlaying
+                ? 'bg-black/10 text-black border-black'
+                : 'bg-black text-white hover:bg-black/80'
+                }`}
               onClick={() => {
                 if (!isPlaying && currentStep >= totalFrames - 1) setCurrentStep(0);
                 setIsPlaying(!isPlaying);
@@ -191,11 +190,11 @@ export default function Timeline() {
             >
               {isPlaying ? (
                 <>
-                  <MdPause /> Pause
+                  <MdPause />
                 </>
               ) : (
                 <>
-                  <MdPlayArrow /> Play
+                  <MdPlayArrow />
                 </>
               )}
             </button>
@@ -203,7 +202,7 @@ export default function Timeline() {
             {/* Next */}
             <button
               onClick={() => setCurrentStep(Math.min(totalFrames - 1, currentStep + 1))}
-              className="p-2 rounded-full hover:bg-gray-200 text-gray-600"
+              className="p-2 rounded-full hover:bg-black/10"
             >
               <MdSkipNext />
             </button>
@@ -211,25 +210,25 @@ export default function Timeline() {
             {/* Skip to End */}
             <button
               onClick={() => setCurrentStep(totalFrames - 1)}
-              className="p-2 rounded-full hover:bg-gray-200 text-gray-600"
+              className="p-2 rounded-full hover:bg-black/10"
             >
               <MdLastPage />
             </button>
           </div>
 
           {/* FPS */}
-          <div className="flex items-center gap-4 text-sm text-gray-600">
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-medium text-gray-700">Animation Speed:</label>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 text-sm text-black/50">
+              <label>Animation Speed:</label>
               <input
                 type="range"
                 min="1"
                 max="60"
                 value={fps}
                 onChange={(e) => setFps(Number(e.target.value))}
-                className="w-24 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                className="w-24 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
-              <p className="text-xs text-gray-400">{fps} fps</p>
+              <p className='w-11 text-right'>{fps} fps</p>
             </div>
           </div>
         </div>
