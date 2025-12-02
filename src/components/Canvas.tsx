@@ -689,7 +689,7 @@ export default function Canvas() {
   };
 
   return (
-    <div ref={containerRef} className="pr-4 relative w-full flex-1 disable-selection">
+    <div ref={containerRef} className="pr-4 pb-4 relative w-full flex-1 disable-selection">
       <canvas
         ref={canvasRef}
         className="w-full h-full block touch-none border border-black/10 bg-black/5 rounded-xl"

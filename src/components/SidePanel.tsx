@@ -78,7 +78,7 @@ export default function SidePanel() {
   const lengthDiff = Math.abs(compareData.visibility.pathLength - compareData.voronoi.pathLength).toFixed(0);
 
   return (
-    <div className="h-full flex flex-col relative flex-shrink-0 overflow-hidden" style={{ width }}>
+    <div className="h-full pb-4 flex flex-col relative flex-shrink-0 overflow-hidden" style={{ width }}>
       {/* Header */}
       <div className="p-4">
         <h1 className="text-2xl font-bold">{algorithmInfo[algorithm].title}</h1>
