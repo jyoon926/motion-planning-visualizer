@@ -192,12 +192,12 @@ export default function Canvas() {
     else if (currentStep >= 0 && currentStep < timeline.length) {
       const step = timeline[currentStep];
 
-      // Draw Circumcircles (BEFORE triangles so they're underneath)
+      // Draw Circumcircles
       if (step.circumcircles) {
         step.circumcircles.forEach(({ center, radius }) => {
           ctx.beginPath();
           ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-          ctx.strokeStyle = hexToRgba(ACCENTS.amber, 0.4);
+          ctx.strokeStyle = ACCENTS.amber;
           ctx.lineWidth = 1;
           ctx.setLineDash([5, 5]);
           ctx.stroke();

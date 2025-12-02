@@ -90,8 +90,8 @@ For each obstacle edge (A, B):
   const phase2Id = 'delaunay';
   const startIdx2 = steps.length;
 
-  const DELAUNAY_START_SHOWING = Math.floor(vertices.length * 0.8);
-  const DELAUNAY_STOP_SHOWING = DELAUNAY_START_SHOWING + 5;
+  const DELAUNAY_START_SHOWING = vertices.length - 10;
+  const DELAUNAY_STOP_SHOWING = vertices.length;
   let delaunayPointIndex = 0;
 
   // Delaunay triangulation with visualization
