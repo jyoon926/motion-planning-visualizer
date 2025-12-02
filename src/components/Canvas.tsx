@@ -409,15 +409,11 @@ export default function Canvas() {
     }
 
     // Helper function to draw Start and Goal points
-    const drawSpecial = (pt: Point, label: string, color: string, isHovered: boolean) => {
+    const drawSpecial = (pt: Point, label: string, color: string) => {
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, SPECIAL_POINT_RADIUS, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
-
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = isHovered ? '#ffffff' : 'rgba(255,255,255,0.8)';
-      ctx.stroke();
 
       ctx.fillStyle = 'white';
       ctx.font = 'bold 11px sans-serif';
@@ -427,9 +423,9 @@ export default function Canvas() {
     };
 
     // Draw Start Point
-    drawSpecial(startPoint, 'S', ACCENTS.green, hoveredSpecialPoint === 'start');
+    drawSpecial(startPoint, 'S', ACCENTS.green);
     // Draw Goal Point
-    drawSpecial(goalPoint, 'G', ACCENTS.amber, hoveredSpecialPoint === 'goal');
+    drawSpecial(goalPoint, 'G', ACCENTS.amber);
   });
 
   const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
