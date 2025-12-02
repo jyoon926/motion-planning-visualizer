@@ -173,7 +173,7 @@ function SegmentsIntersect(A, B, C, D):
     id: phase3Id,
     name: 'A* Search',
     description:
-      'With the filtered, collision-free Voronoi graph, we now use the A* search algorithm to find the shortest path from Start to Goal. A* efficiently explores the graph by minimizing the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal.',
+      'We now use the A* search algorithm to find the shortest path from Start to Goal. A* efficiently explores the graph by minimizing the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal.',
     pseudocode: `OpenSet = {Start}, gScore[Start] = 0
 fScore[Start] = h(Start, Goal)
 
