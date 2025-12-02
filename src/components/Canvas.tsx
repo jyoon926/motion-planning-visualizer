@@ -47,7 +47,7 @@ const THEME = {
     invalid: ACCENTS.red,
   },
   graph: {
-    edge: GRAY[300],
+    edge: GRAY[400],
     node: GRAY[500],
   },
 };
