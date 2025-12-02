@@ -42,6 +42,7 @@ function App() {
     canvasSize,
     params,
     currentStep,
+    timeline,
     setTimelineData,
     setCurrentStep,
     setCompareData,
@@ -53,6 +54,8 @@ function App() {
 
   useEffect(() => {
     if (canvasSize.width === 0 || canvasSize.height === 0) return;
+
+    const wasAtEnd = currentStep == timeline.length - 1;
 
     // Compute Visibility Graph
     const visOutput = algorithms.visibility.algorithm(startPoint, goalPoint, polygons, canvasSize);
@@ -68,12 +71,16 @@ function App() {
     const vorPathLength = calculatePathLength(finalVoronoiStep?.path);
     setCompareData({ voronoi: { pathLength: vorPathLength } });
 
-    // UUpdate timeline based on selected algorithm
+    // Update timeline based on selected algorithm
     const selectedAlgo = algorithms[algorithm as AlgorithmType];
     if (algorithm !== 'compare' && selectedAlgo) {
       const output = algorithm === 'visibility' ? visOutput : vorOutput;
       setTimelineData(output.steps, output.phases);
-      if (polygons.length > 0) setCurrentStep(Math.min(currentStep, output.steps.length - 1));
+      if (currentStep === -1) {
+        setCurrentStep(0);
+      } else {
+        setCurrentStep(wasAtEnd ? output.steps.length - 1 : Math.min(currentStep, output.steps.length - 1));
+      }
     }
 
     // Clear timeline for compare mode

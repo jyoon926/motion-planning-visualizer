@@ -134,7 +134,7 @@ export const useStore = create<AppState>((set) => ({
   algorithm: 'visibility',
   timeline: [],
   phases: [],
-  currentStep: 0,
+  currentStep: -1,
   isPlaying: false,
   fps: 5,
 
