@@ -101,8 +101,8 @@ export default function SidePanel() {
               <label>Sample Distance:</label>
               <input
                 type="range"
-                min="10"
-                max="50"
+                min="20"
+                max="80"
                 step="5"
                 value={params.voronoiSampleDist}
                 onChange={(e) => setParams({ voronoiSampleDist: Number(e.target.value) })}

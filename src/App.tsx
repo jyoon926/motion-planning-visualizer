@@ -76,10 +76,11 @@ function App() {
     if (algorithm !== 'compare' && selectedAlgo) {
       const output = algorithm === 'visibility' ? visOutput : vorOutput;
       setTimelineData(output.steps, output.phases);
+      const lastFrame = output.steps.length - 1;
       if (currentStep === -1) {
-        setCurrentStep(0);
+        setCurrentStep(lastFrame);
       } else {
-        setCurrentStep(wasAtEnd ? output.steps.length - 1 : Math.min(currentStep, output.steps.length - 1));
+        setCurrentStep(wasAtEnd ? lastFrame : Math.min(currentStep, lastFrame));
       }
     }
 
@@ -108,8 +109,7 @@ function App() {
         <SidePanel />
         <Canvas />
       </div>
-      {/* Hide Timeline in compare mode */}
-      {algorithm !== 'compare' && <Timeline />}
+      <Timeline />
 
       {/* About Dialog */}
       {isAboutDialogOpen && <About onClose={() => setIsAboutDialogOpen(false)} />}

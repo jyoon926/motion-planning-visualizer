@@ -197,7 +197,7 @@ export default function Canvas() {
         step.circumcircles.forEach(({ center, radius }) => {
           ctx.beginPath();
           ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
-          ctx.strokeStyle = ACCENTS.amber;
+          ctx.strokeStyle = THEME.active.check;
           ctx.lineWidth = 1;
           ctx.setLineDash([5, 5]);
           ctx.stroke();
@@ -258,7 +258,7 @@ export default function Canvas() {
 
       // Draw Circumcenters
       if (step.circumcenters) {
-        ctx.fillStyle = ACCENTS.blue;
+        ctx.fillStyle = THEME.active.valid;
         step.circumcenters.forEach((c) => {
           ctx.beginPath();
           ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
@@ -270,35 +270,11 @@ export default function Canvas() {
       if (step.activeCircumcenter) {
         ctx.beginPath();
         ctx.arc(step.activeCircumcenter.x, step.activeCircumcenter.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = hexToRgba(ACCENTS.blue, 0.3);
+        ctx.fillStyle = hexToRgba(THEME.active.check, 0.3);
         ctx.fill();
         ctx.lineWidth = 2;
-        ctx.strokeStyle = ACCENTS.blue;
+        ctx.strokeStyle = THEME.active.check;
         ctx.stroke();
-      }
-
-      // Draw Graph Edges
-      if (step.edges) {
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = THEME.graph.edge;
-        step.edges.forEach(([p1, p2]) => {
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
-        });
-      }
-
-      // Draw Graph Edges
-      if (step.edges) {
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = THEME.graph.edge;
-        step.edges.forEach(([p1, p2]) => {
-          ctx.beginPath();
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.stroke();
-        });
       }
 
       // Draw Graph Edges
@@ -351,19 +327,19 @@ export default function Canvas() {
       if (step.activeNode) {
         ctx.beginPath();
         ctx.arc(step.activeNode.x, step.activeNode.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = hexToRgba(ACCENTS.blue, 0.3);
+        ctx.fillStyle = hexToRgba(THEME.active.check, 0.3);
         ctx.fill();
         ctx.lineWidth = 2;
-        ctx.strokeStyle = ACCENTS.blue;
+        ctx.strokeStyle = THEME.active.check;
         ctx.stroke();
       }
 
       // Draw Final/Current Path
       if (step.path && step.path.length > 1) {
-        ctx.shadowColor = hexToRgba(ACCENTS.green, 0.5);
+        ctx.shadowColor = hexToRgba(ACCENTS.blue, 0.5);
         ctx.shadowBlur = 10;
         ctx.lineWidth = 4;
-        ctx.strokeStyle = THEME.active.valid;
+        ctx.strokeStyle = ACCENTS.blue;
         ctx.beginPath();
         ctx.moveTo(step.path[0].x, step.path[0].y);
         for (let i = 1; i < step.path.length; i++) ctx.lineTo(step.path[i].x, step.path[i].y);
@@ -689,7 +665,7 @@ export default function Canvas() {
   };
 
   return (
-    <div ref={containerRef} className="pr-4 pb-4 relative w-full flex-1 disable-selection">
+    <div ref={containerRef} className="pr-4 pb-4 relative w-full flex-1 disable-selection overflow-hidden">
       <canvas
         ref={canvasRef}
         className="w-full h-full block touch-none border border-black/10 bg-black/5 rounded-xl"

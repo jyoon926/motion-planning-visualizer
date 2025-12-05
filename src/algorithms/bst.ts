@@ -87,9 +87,9 @@ export class BinarySearchTree<T> {
     }
   }
 
-  leftmost(node: BinarySearchTreeNode<T> | undefined): any {
+  leftmost(node: BinarySearchTreeNode<T> | undefined): BinarySearchTreeNode<T> | undefined {
     if (node) {
-      if (node.leftNode){
+      if (node.leftNode) {
         return this.leftmost(node.leftNode);
       } else {
         return node;
@@ -100,45 +100,41 @@ export class BinarySearchTree<T> {
   }
 
   delete(root: BinarySearchTreeNode<T> | undefined, data: T): BinarySearchTreeNode<T> | undefined {
-    
     if (root === undefined) return undefined;
 
     const cmp = this.comparator(data, root.data);
 
     if (cmp < 0) {
-        // value is in the left subtree
-        root.leftNode = this.delete(root.leftNode, data);
-        return root;
-
+      // value is in the left subtree
+      root.leftNode = this.delete(root.leftNode, data);
+      return root;
     } else if (cmp > 0) {
-        // value is in the right subtree
-        root.rightNode = this.delete(root.rightNode, data);
-        return root;
-
+      // value is in the right subtree
+      root.rightNode = this.delete(root.rightNode, data);
+      return root;
     } else {
-        // found the node to delete
-        if (!root.leftNode && !root.rightNode) {
-            return undefined;
-        }
+      // found the node to delete
+      if (!root.leftNode && !root.rightNode) {
+        return undefined;
+      }
 
-        if (!root.leftNode) {
-            return root.rightNode;
-        }
+      if (!root.leftNode) {
+        return root.rightNode;
+      }
 
-        if (!root.rightNode) {
-            return root.leftNode;
-        }
+      if (!root.rightNode) {
+        return root.leftNode;
+      }
 
-        let successor = root.rightNode;
-        while (successor.leftNode !== undefined) {
-            successor = successor.leftNode;
-        }
+      let successor = root.rightNode;
+      while (successor.leftNode !== undefined) {
+        successor = successor.leftNode;
+      }
 
-        root.data = successor.data;
-        root.rightNode = this.delete(root.rightNode, successor.data);
+      root.data = successor.data;
+      root.rightNode = this.delete(root.rightNode, successor.data);
 
-        return root;
+      return root;
     }
   }
-
 }
