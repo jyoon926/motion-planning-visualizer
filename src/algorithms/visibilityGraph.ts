@@ -94,7 +94,7 @@ export function computeVisibilityGraph(
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
   });
-*/
+  */
   // NAIVE IMPLEMENTATION
   const ccw = (A: Point, B: Point, C: Point): boolean => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
   const segmentsIntersect = (A: Point, B: Point, C: Point, D: Point): boolean =>
@@ -124,45 +124,34 @@ export function computeVisibilityGraph(
     return true;
   };
 
-  const NUM_SOURCE_POINTS = 3; // Show all edge checks for the first N source points
-
   for (let i = 0; i < currentVertices.length; i++) {
-    const shouldShowSource = i < NUM_SOURCE_POINTS;
-
     for (let j = i + 1; j < currentVertices.length; j++) {
       const v1 = currentVertices[i];
       const v2 = currentVertices[j];
-      const shouldShowStep = shouldShowSource;
 
-      if (shouldShowStep) {
-        addStep(
-          phase2Id,
-          `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
-          {
-            scanLine: [v1, v2],
-            activeState: 'checking',
-          }
-        );
-      }
+      addStep(
+        phase2Id,
+        `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
+        {
+          scanLine: [v1, v2],
+          activeState: 'checking',
+        }
+      );
 
       if (isVisible(v1, v2)) {
         currentEdges.push([v1, v2]);
         vgraph.get(getKeyString(v1))?.push(v2);
         vgraph.get(getKeyString(v2))?.push(v1);
 
-        if (shouldShowStep) {
-          addStep(phase2Id, 'Line of sight is clear. Edge added.', {
-            activeEdge: [v1, v2],
-            activeState: 'valid',
-          });
-        }
+        addStep(phase2Id, 'Line of sight is clear. Edge added.', {
+          activeEdge: [v1, v2],
+          activeState: 'valid',
+        });
       } else {
-        if (shouldShowStep) {
-          addStep(phase2Id, 'Line of sight blocked by obstacle.', {
-            scanLine: [v1, v2],
-            activeState: 'invalid',
-          });
-        }
+        addStep(phase2Id, 'Line of sight blocked by obstacle.', {
+          scanLine: [v1, v2],
+          activeState: 'invalid',
+        });
       }
     }
   }

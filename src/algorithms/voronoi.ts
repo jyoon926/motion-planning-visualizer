@@ -46,7 +46,9 @@ export function computeVoronoi(
 
   // Sample Obstacle Edges
   let obsPointsCount = 0;
+  const obstacles = [];
   for (const poly of polygons) {
+    const obsPoints = [];
     for (let i = 0; i < poly.length; i++) {
       const p1 = poly[i];
       const p2 = poly[(i + 1) % poly.length];
@@ -59,9 +61,14 @@ export function computeVoronoi(
           x: p1.x + t * (p2.x - p1.x),
           y: p1.y + t * (p2.y - p1.y),
         });
+        obsPoints.push({
+          x: p1.x + t * (p2.x - p1.x),
+          y: p1.y + t * (p2.y - p1.y),
+        });
         obsPointsCount++;
       }
     }
+    obstacles.push(obsPoints);
   }
   addStep(phase1Id, `Sampled ${obsPointsCount} points along obstacle edges.`);
 
@@ -89,56 +96,48 @@ For each obstacle edge (A, B):
   // --- PHASE 2: DELAUNAY TRIANGULATION ---
   const phase2Id = 'delaunay';
   const startIdx2 = steps.length;
-
-  const DELAUNAY_START_SHOWING = vertices.length - 10;
-  const DELAUNAY_STOP_SHOWING = vertices.length;
   let delaunayPointIndex = 0;
 
   // Delaunay triangulation with visualization
   const triangles = manualDelaunay(vertices, (currentTris, newPoint, badTris, _, newTris) => {
     const triArray: Array<[Point, Point, Point]> = currentTris.map((t) => [t.p1, t.p2, t.p3]);
 
-    // Only show detailed steps in the middle section
-    const shouldShow = delaunayPointIndex >= DELAUNAY_START_SHOWING && delaunayPointIndex < DELAUNAY_STOP_SHOWING;
-
-    if (shouldShow) {
-      if (newPoint && !badTris && !newTris) {
-        addStep(
-          phase2Id,
-          `Inserting point ${delaunayPointIndex + 1}: (${Math.round(newPoint.x)}, ${Math.round(newPoint.y)})`,
-          {
-            triangles: triArray,
-            activeNode: newPoint,
-          }
-        );
-      }
-
-      if (badTris && badTris.length > 0) {
-        const badTriArray: Array<[Point, Point, Point]> = badTris.map((t) => [t.p1, t.p2, t.p3]);
-
-        // Calculate circumcircles for visualization
-        const circumcircles = badTris.map((t) => {
-          const center = getCircumcenter(t.p1, t.p2, t.p3);
-          const radius = Math.hypot(center.x - t.p1.x, center.y - t.p1.y);
-          return { center, radius };
-        });
-
-        addStep(phase2Id, `Found ${badTris.length} triangle(s) whose circumcircle contains the new point`, {
+    if (newPoint && !badTris && !newTris) {
+      addStep(
+        phase2Id,
+        `Inserting point ${delaunayPointIndex + 1}: (${Math.round(newPoint.x)}, ${Math.round(newPoint.y)})`,
+        {
           triangles: triArray,
-          activeTriangles: badTriArray,
           activeNode: newPoint,
-          circumcircles,
-        });
-      }
+        }
+      );
+    }
 
-      if (newTris && newTris.length > 0) {
-        const newTriArray: Array<[Point, Point, Point]> = newTris.map((t) => [t.p1, t.p2, t.p3]);
-        addStep(phase2Id, `Removed bad triangles and created ${newTris.length} new triangle(s)`, {
-          triangles: triArray,
-          newTriangles: newTriArray,
-          activeNode: newPoint,
-        });
-      }
+    if (badTris && badTris.length > 0) {
+      const badTriArray: Array<[Point, Point, Point]> = badTris.map((t) => [t.p1, t.p2, t.p3]);
+
+      // Calculate circumcircles for visualization
+      const circumcircles = badTris.map((t) => {
+        const center = getCircumcenter(t.p1, t.p2, t.p3);
+        const radius = Math.hypot(center.x - t.p1.x, center.y - t.p1.y);
+        return { center, radius };
+      });
+
+      addStep(phase2Id, `Found ${badTris.length} triangle(s) whose circumcircle contains the new point`, {
+        triangles: triArray,
+        activeTriangles: badTriArray,
+        activeNode: newPoint,
+        circumcircles,
+      });
+    }
+
+    if (newTris && newTris.length > 0) {
+      const newTriArray: Array<[Point, Point, Point]> = newTris.map((t) => [t.p1, t.p2, t.p3]);
+      addStep(phase2Id, `Removed bad triangles and created ${newTris.length} new triangle(s)`, {
+        triangles: triArray,
+        newTriangles: newTriArray,
+        activeNode: newPoint,
+      });
     }
 
     // Increment only when we've finished processing a point (when newTris is provided)
@@ -177,8 +176,6 @@ For each point P:
   const circumcenters = new Map<Triangle, Point>();
   const circumcenterArray: Point[] = [];
   const allCircumcircles: Array<{ center: Point; radius: number }> = [];
-
-  const MAX_CIRCUMCENTER_STEPS = 10; // Show first 10 circumcenters
   let circumcenterCount = 0;
 
   for (const tri of triangles) {
@@ -189,15 +186,14 @@ For each point P:
     circumcenterArray.push(circumcenter);
     allCircumcircles.push({ center: circumcenter, radius });
 
-    if (circumcenterCount < MAX_CIRCUMCENTER_STEPS) {
-      addStep(phase3Id, `Circumcenter ${circumcenterCount + 1}/${triangles.length}: passes through all 3 vertices`, {
-        triangles: triArray,
-        activeTriangles: [[tri.p1, tri.p2, tri.p3]],
-        circumcenters: [...circumcenterArray],
-        activeCircumcenter: circumcenter,
-        circumcircles: [{ center: circumcenter, radius }],
-      });
-    }
+    addStep(phase3Id, `Circumcenter ${circumcenterCount + 1}/${triangles.length} found.`, {
+      triangles: triArray,
+      activeTriangles: [[tri.p1, tri.p2, tri.p3]],
+      circumcenters: [...circumcenterArray],
+      activeCircumcenter: circumcenter,
+      circumcircles: [{ center: circumcenter, radius }],
+    });
+
     circumcenterCount++;
   }
 
@@ -206,11 +202,10 @@ For each point P:
     circumcenters: circumcenterArray,
   });
 
-  const MAX_VORONOI_EDGE_STEPS = 10; // Show first 10 edges
   let voronoiEdgeStepCount = 0;
 
   const vorEdges = manualVoronoi(triangles, start, goal, circumcenters, (edgesSoFar, newEdge, isConnectingSpecial) => {
-    if (!isConnectingSpecial && voronoiEdgeStepCount < MAX_VORONOI_EDGE_STEPS) {
+    if (!isConnectingSpecial) {
       edges = edgesSoFar;
       addStep(phase3Id, `Voronoi edge ${edgesSoFar.length}: connecting adjacent circumcenters`, {
         circumcenters: circumcenterArray,
@@ -253,9 +248,7 @@ Connect Start and Goal to their respective cells`,
     complexity: 'O(n)',
     startStepIndex: startIdx3,
     endStepIndex: steps.length - 1,
-  });
-
-  // --- PHASE 4: FILTERING & CONNECTION ---
+  }); // --- PHASE 4: FILTERING & CONNECTION ---
   const phase4Id = 'filtering';
   const startIdx4 = steps.length;
 

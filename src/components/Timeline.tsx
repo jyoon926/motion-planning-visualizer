@@ -14,6 +14,7 @@ export default function Timeline() {
     setFps,
     hoveredPhaseId,
     setHoveredPhaseId,
+    algorithm,
   } = useStore();
 
   const trackRef = useRef<HTMLDivElement>(null);
@@ -102,7 +103,7 @@ export default function Timeline() {
   }, [isDragging, totalFrames, isPlaying, handleTimelineInteraction]);
 
   return (
-    <div className="disable-selection">
+    <div className={`disable-selection ${algorithm === 'compare' && 'pointer-events-none opacity-50'}`}>
       <div className="w-full h-auto p-4 pt-0 flex flex-col gap-3">
         {/* Current Action Message */}
         <div className="flex justify-between items-end">
@@ -125,29 +126,33 @@ export default function Timeline() {
           onMouseDown={handleMouseDown}
         >
           <div className="absolute inset-0 flex w-full h-full gap-1">
-            {phases.map((phase) => {
-              const duration = phase.endStepIndex - phase.startStepIndex + 1;
-              const widthPct = (duration / totalFrames) * 100;
+            {algorithm === 'compare' ? (
+              <div className="h-full rounded-lg transition-colors duration-200 relative flex justify-center bg-black/10 w-full" />
+            ) : (
+              phases.map((phase) => {
+                const duration = phase.endStepIndex - phase.startStepIndex + 1;
+                const widthPct = (duration / totalFrames) * 100;
 
-              return (
-                <div
-                  key={phase.id}
-                  className={`h-full rounded-lg transition-colors duration-200 relative flex justify-center
+                return (
+                  <div
+                    key={phase.id}
+                    className={`h-full rounded-lg transition-colors duration-200 relative flex justify-center
                     ${phase.id === hoveredPhaseId ? 'bg-black/20' : 'bg-black/10'}
                   `}
-                  style={{ width: `${widthPct}%` }}
-                  onMouseEnter={() => setHoveredPhaseId(phase.id)}
-                  onMouseLeave={() => setHoveredPhaseId(null)}
-                >
-                  {/* Phase Name Popup */}
-                  {phase.id === hoveredPhaseId && (
-                    <span className="absolute top-[-32px] text-xs bg-black/70 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
-                      {phase.name}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+                    style={{ width: `${widthPct}%` }}
+                    onMouseEnter={() => setHoveredPhaseId(phase.id)}
+                    onMouseLeave={() => setHoveredPhaseId(null)}
+                  >
+                    {/* Phase Name Popup */}
+                    {phase.id === hoveredPhaseId && (
+                      <span className="absolute top-[-32px] text-xs bg-black/70 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
+                        {phase.name}
+                      </span>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
 
           {/* Scrubber Knob */}
@@ -219,7 +224,7 @@ export default function Timeline() {
               <input
                 type="range"
                 min="1"
-                max="20"
+                max="60"
                 value={fps}
                 onChange={(e) => setFps(Number(e.target.value))}
                 className="w-24 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-blue-600"

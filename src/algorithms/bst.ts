@@ -87,7 +87,7 @@ export class BinarySearchTree<T> {
     }
   }
 
-  leftmost(node: BinarySearchTreeNode<T> | undefined): any {
+  leftmost(node: BinarySearchTreeNode<T> | undefined): BinarySearchTreeNode<T> | undefined {
     if (node) {
       if (node.leftNode) {
         return this.leftmost(node.leftNode);
