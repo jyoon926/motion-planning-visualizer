@@ -126,53 +126,59 @@ V = {start, goal} + Vertices(obstacles)`,
     return true;
   };
 
+  const NUM_SOURCE_POINTS = 3; // Show all edge checks for the first N source points
+
   for (let i = 0; i < currentVertices.length; i++) {
+    const shouldShowSource = i < NUM_SOURCE_POINTS;
+
     for (let j = i + 1; j < currentVertices.length; j++) {
       const v1 = currentVertices[i];
       const v2 = currentVertices[j];
+      const shouldShowStep = shouldShowSource;
 
-      addStep(
-        phase2Id,
-        `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
-        {
-          scanLine: [v1, v2],
-          activeState: 'checking',
-        }
-      );
-
-      // TESTING
-      // const orientation = (p: Point, q: Point, r: Point): number => 
-      //   ((q.x * r.y) + (p.x * q.y) + (p.y * r.x)) - ((q.x * p.y) + (r.x * q.y) + (r.y * p.x)); 
-      // if(vertices.length > 2){
-      //   update(`orientation of start, goal, and (${vertices[2].x}, ${vertices[2].y}) is ${orientation(start, goal, vertices[2])}`);
-      // }
-      // END TESTING
-      
-
+      if (shouldShowStep) {
+        addStep(
+          phase2Id,
+          `Checking visibility between (${Math.round(v1.x)}, ${Math.round(v1.y)}) and (${Math.round(v2.x)}, ${Math.round(v2.y)})`,
+          {
+            scanLine: [v1, v2],
+            activeState: 'checking',
+          }
+        );
+      }
 
       if (isVisible(v1, v2)) {
         currentEdges.push([v1, v2]);
         vgraph.get(getKeyString(v1))?.push(v2);
         vgraph.get(getKeyString(v2))?.push(v1);
-       
-        addStep(phase2Id, 'Line of sight is clear. Edge added.', {
-          activeEdge: [v1, v2],
-          activeState: 'valid',
-        });
+
+        if (shouldShowStep) {
+          addStep(phase2Id, 'Line of sight is clear. Edge added.', {
+            activeEdge: [v1, v2],
+            activeState: 'valid',
+          });
+        }
       } else {
-        addStep(phase2Id, 'Line of sight blocked by obstacle.', {
-          scanLine: [v1, v2],
-          activeState: 'invalid',
-        });
+        if (shouldShowStep) {
+          addStep(phase2Id, 'Line of sight blocked by obstacle.', {
+            scanLine: [v1, v2],
+            activeState: 'invalid',
+          });
+        }
       }
     }
   }
+
+  // Add final frame showing complete graph
+  addStep(phase2Id, 'Visibility graph complete. All edges computed.', {
+    activeState: 'valid',
+  });
 
   phases.push({
     id: phase2Id,
     name: 'Building Visibility Graph',
     description:
-      'We construct the edges of the graph by checking the line of sight (LOS) between every pair of vertices. An edge exists if and only if the straight line segment between the two vertices does not intersect any obstacle. The intersection check uses the Counter-Clockwise (CCW) orientation test to determine if two line segments cross.',
+      'We check line of sight between vertices to build the graph. An edge connects two vertices only if the line segment between them is unobstructed. The visualization shows all checks from the first few source vertices.',
     pseudocode: `For each pair of vertices (u, v) in V:
     If LOS(u, v) is clear (does not intersect any obstacle edge):
         Add edge (u, v) to G
@@ -203,22 +209,17 @@ function SegmentsIntersect(A, B, C, D):
     id: phase3Id,
     name: 'A* Search',
     description:
-      'With the complete visibility graph built, the A* search algorithm is used to find the shortest path from the start node to the goal node. A* minimizes the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal, serving as an admissible heuristic.',
-    pseudocode: `OpenSet = {Start}
-gScore[Start] = 0
+      'We now use the A* search algorithm to find the shortest path from Start to Goal. A* efficiently explores the graph by minimizing the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal.',
+    pseudocode: `OpenSet = {Start}, gScore[Start] = 0
 fScore[Start] = h(Start, Goal)
 
-While OpenSet is not empty:
-    Current = node in OpenSet with lowest fScore
-    If Current == Goal:
-        Reconstruct path and return
-    For each neighbor of Current in G:
-        tentative_g = gScore[Current] + distance(Current, neighbor)
+While OpenSet not empty:
+    Current = node with lowest fScore
+    If Current == Goal: return path
+    For each neighbor of Current:
+        tentative_g = gScore[Current] + dist
         If tentative_g < gScore[neighbor]:
-            gScore[neighbor] = tentative_g
-            fScore[neighbor] = tentative_g + h(neighbor, Goal)
-            Parent[neighbor] = Current
-            Add neighbor to OpenSet`,
+            Update scores and parent`,
     complexity: 'O(E log V)',
     startStepIndex: startIdx3,
     endStepIndex: steps.length - 1,

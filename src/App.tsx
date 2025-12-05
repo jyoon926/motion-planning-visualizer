@@ -5,7 +5,7 @@ import Canvas from './components/Canvas';
 import SidePanel from './components/SidePanel';
 import { useStore } from './utils/store';
 import { computeVisibilityGraph } from './algorithms/visibilityGraph';
-import { computeVoronoi } from './algorithms/voronoiTest';
+import { computeVoronoi } from './algorithms/voronoi';
 import type { AlgorithmType, Point } from './utils/types';
 import { dist } from './utils/common';
 import About from './components/About';
@@ -41,6 +41,8 @@ function App() {
     polygons,
     canvasSize,
     params,
+    currentStep,
+    timeline,
     setTimelineData,
     setCurrentStep,
     setCompareData,
@@ -53,26 +55,32 @@ function App() {
   useEffect(() => {
     if (canvasSize.width === 0 || canvasSize.height === 0) return;
 
-    // --- Compute Visibility Graph ---
+    const wasAtEnd = currentStep == timeline.length - 1;
+
+    // Compute Visibility Graph
     const visOutput = algorithms.visibility.algorithm(startPoint, goalPoint, polygons, canvasSize);
     const finalVisStep = visOutput.steps[visOutput.steps.length - 1] || null;
     setFinalVisStep(finalVisStep); // Set final step
     const visPathLength = calculatePathLength(finalVisStep?.path);
     setCompareData({ visibility: { pathLength: visPathLength } });
 
-    // --- Compute Voronoi Diagram ---
+    // Compute Voronoi Diagram
     const vorOutput = algorithms.voronoi.algorithm(startPoint, goalPoint, polygons, canvasSize, params);
     const finalVoronoiStep = vorOutput.steps[vorOutput.steps.length - 1] || null;
     setFinalVoronoiStep(finalVoronoiStep); // Set final step
     const vorPathLength = calculatePathLength(finalVoronoiStep?.path);
     setCompareData({ voronoi: { pathLength: vorPathLength } });
 
-    // --- Update Timeline based on selected algorithm ---
+    // Update timeline based on selected algorithm
     const selectedAlgo = algorithms[algorithm as AlgorithmType];
     if (algorithm !== 'compare' && selectedAlgo) {
       const output = algorithm === 'visibility' ? visOutput : vorOutput;
       setTimelineData(output.steps, output.phases);
-      setCurrentStep(output.steps.length - 1);
+      if (currentStep === -1) {
+        setCurrentStep(0);
+      } else {
+        setCurrentStep(wasAtEnd ? output.steps.length - 1 : Math.min(currentStep, output.steps.length - 1));
+      }
     }
 
     // Clear timeline for compare mode

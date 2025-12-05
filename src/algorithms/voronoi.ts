@@ -1,303 +1,608 @@
-// import type { AlgorithmStep, Point } from '../components/CanvasComponent';
+import { runAStar } from './astar';
+import { getKeyString } from '../utils/common';
+import type { AlgorithmOutput, AlgorithmPhase, AlgorithmStep, Parameters, Point } from '../utils/types';
 
-// type SamplePoint = {
-//   startPoint: Point;
-//   dx: number;
-//   dy: number;
-//   endPoint: Point;
-// };
+export function computeVoronoi(
+  start: Point,
+  goal: Point,
+  polygons: Point[][],
+  canvasSize: { width: number; height: number },
+  params: Parameters
+): AlgorithmOutput {
+  const steps: AlgorithmStep[] = [];
+  const phases: AlgorithmPhase[] = [];
 
-// // The "main" function of finding the voronoi path
-// function computeVoronoi(start: Point, goal: Point, obstacles: Point[][]): AlgorithmStep[] {
-//   const timeline: AlgorithmStep[] = [];
-//   const vertices: Point[] = [];
-//   const edges: [Point, Point][] = [];
-//   const path: Point[] = [];
+  const vertices: Point[] = [];
+  let edges: [Point, Point][] = [];
+  let path: Point[] = [];
 
-//   const update = (message: string) => {
-//     timeline.push({ message, vertices: [...vertices], edges: [...edges], path: [...path] });
-//   };
+  const addStep = (phaseId: string, message: string, extras: Partial<AlgorithmStep> = {}) => {
+    steps.push({
+      phaseId,
+      message,
+      vertices: [...vertices],
+      edges: [...edges],
+      path: [...path],
+      ...extras,
+    });
+  };
 
-//   update('Starting voronoi path computation...');
-//   console.log(start, goal, obstacles);
+  // --- PHASE 1: SAMPLING ---
+  const phase1Id = 'sampling';
+  const startIdx1 = steps.length;
 
-//   // Test Point for debug
-//   // const debugPoint: Point = {
-//   //   x: 300,
-//   //   y: 300,
-//   // }
+  // Add Start/Goal
+  vertices.push(start, goal);
+  addStep(phase1Id, 'Added Start and Goal points.');
 
-//   // Set boundary limit to where lines can be drawn
-//   const margin = 100;
-//   const allPoints = [start, goal, ...obstacles.flat()];
-//   const minX = Math.min(...allPoints.map((p) => p.x)) - margin;
-//   const maxX = Math.max(...allPoints.map((p) => p.x)) + margin;
-//   const minY = Math.min(...allPoints.map((p) => p.y)) - margin;
-//   const maxY = Math.max(...allPoints.map((p) => p.y)) + margin;
-//   const boundaryData = [minX, maxX, minY, maxY];
+  // Sample boundary
+  const { width, height } = canvasSize;
+  const sampleDist = params.voronoiSampleDist || 40;
 
-//   // Given the obstacles, find all existing edges
-//   const obstacleEdges: {
-//     a: Point;
-//     b: Point;
-//     samplePoints: SamplePoint[];
-//     rayDirection: number; // 0 is positive, 1 is negative
-//   }[] = [];
+  for (let x = 0; x <= width; x += sampleDist) vertices.push({ x, y: 0 }, { x, y: height });
+  for (let y = sampleDist; y < height; y += sampleDist) vertices.push({ x: 0, y }, { x: width, y });
 
-//   for (let oi = 0; oi < obstacles.length; oi++) {
-//     const polygon = obstacles[oi];
-//     if (!polygon || polygon.length < 2) continue;
-//     const polygonWinding = getPolygonWinding(polygon);
-//     for (let i = 0; i < polygon.length; i++) {
-//       const a = polygon[i];
-//       const b = polygon[(i + 1) % polygon.length];
-//       const direction = getRayDirection(polygonWinding, a, b);
-//       obstacleEdges.push({ a, b, samplePoints: [], rayDirection: direction });
-//       update('Finding obstacle edges...');
-//     }
-//   }
+  addStep(phase1Id, 'Sampled canvas boundaries.', { activeState: 'neutral' });
 
-//   // Distance between sampled points on edges
-//   const sampleSpacing = 5;
+  // Sample Obstacle Edges
+  let obsPointsCount = 0;
+  for (const poly of polygons) {
+    for (let i = 0; i < poly.length; i++) {
+      const p1 = poly[i];
+      const p2 = poly[(i + 1) % poly.length];
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const samples = Math.max(1, Math.ceil(dist / sampleDist));
 
-//   // Get all sampled points from certain edge
-//   for (let i = 0; i < obstacleEdges.length; i++) {
-//     const currEdge = obstacleEdges[i];
-//     const samplePoints = sampleEdge(currEdge.a, currEdge.b, sampleSpacing);
+      for (let s = 0; s < samples; s++) {
+        const t = s / samples;
+        vertices.push({
+          x: p1.x + t * (p2.x - p1.x),
+          y: p1.y + t * (p2.y - p1.y),
+        });
+        obsPointsCount++;
+      }
+    }
+  }
+  addStep(phase1Id, `Sampled ${obsPointsCount} points along obstacle edges.`);
 
-//     const dx = currEdge.b.x - currEdge.a.x;
-//     const dy = currEdge.b.y - currEdge.a.y;
+  phases.push({
+    id: phase1Id,
+    name: 'Sampling',
+    description:
+      'The first step is to generate the points that define the Voronoi diagram. We include the Start and Goal positions, plus we add a grid of points along the canvas boundaries and points sampled along the edges of every obstacle. These samples become the input to Delaunay triangulation.',
+    pseudocode: `Sites = {Start, Goal}
 
-//     // The two options for direction of the rays
-//     const p1 = { x: -dy, y: dx }; // 90° one way
-//     const p2 = { x: dy, y: -dx }; // 90° the other way
+For boundary at interval D:
+    Add boundary samples to Sites
 
-//     for (let j = 0; j < samplePoints.length; j++) {
-//       const currSamplePoint = samplePoints[j];
-//       const wantUp = currEdge.rayDirection === 0;
+For each obstacle edge (A, B):
+    samples = ceil(length(A,B) / D)
+    For t from 0 to num_samples:
+        // Interpolate to get a point on the edge
+        P = A + t * (B - A) / num_samples
+        Add P to Sites`,
+    complexity: 'O(perimeter/D)',
+    startStepIndex: startIdx1,
+    endStepIndex: steps.length - 1,
+  });
 
-//       // Choose the perpendicular whose y matches the desired sign
-//       let chosen = p1;
-//       if (wantUp) {
-//         if (p1.y > 0) chosen = p1;
-//         else if (p2.y > 0) chosen = p2;
-//         else {
-//           chosen = p2;
-//         }
-//       } else {
-//         // want down
-//         if (p1.y < 0) chosen = p1;
-//         else if (p2.y < 0) chosen = p2;
-//         else {
-//           chosen = p1;
-//         }
-//       }
+  // --- PHASE 2: DELAUNAY TRIANGULATION ---
+  const phase2Id = 'delaunay';
+  const startIdx2 = steps.length;
 
-//       // Normalize and scale to ray length
-//       const len = Math.hypot(chosen.x, chosen.y);
+  const DELAUNAY_START_SHOWING = vertices.length - 10;
+  const DELAUNAY_STOP_SHOWING = vertices.length;
+  let delaunayPointIndex = 0;
 
-//       // Unit vector
-//       const ux = chosen.x / len;
-//       const uy = chosen.y / len;
+  // Delaunay triangulation with visualization
+  const triangles = manualDelaunay(vertices, (currentTris, newPoint, badTris, _, newTris) => {
+    const triArray: Array<[Point, Point, Point]> = currentTris.map((t) => [t.p1, t.p2, t.p3]);
 
-//       const rayEnd: Point = {
-//         x: currSamplePoint.x + ux * sampleSpacing,
-//         y: currSamplePoint.y + uy * sampleSpacing,
-//       };
+    // Only show detailed steps in the middle section
+    const shouldShow = delaunayPointIndex >= DELAUNAY_START_SHOWING && delaunayPointIndex < DELAUNAY_STOP_SHOWING;
 
-//       const newSamplePoint: SamplePoint = {
-//         startPoint: currSamplePoint,
-//         dx: ux,
-//         dy: uy,
-//         endPoint: rayEnd,
-//       };
-//       currEdge.samplePoints.push(newSamplePoint);
+    if (shouldShow) {
+      if (newPoint && !badTris && !newTris) {
+        addStep(
+          phase2Id,
+          `Inserting point ${delaunayPointIndex + 1}: (${Math.round(newPoint.x)}, ${Math.round(newPoint.y)})`,
+          {
+            triangles: triArray,
+            activeNode: newPoint,
+          }
+        );
+      }
 
-//       vertices.push(newSamplePoint.startPoint);
-//       edges.push([newSamplePoint.startPoint, newSamplePoint.endPoint]);
-//       update('Creating sample points and respective rays...');
-//     }
-//   }
+      if (badTris && badTris.length > 0) {
+        const badTriArray: Array<[Point, Point, Point]> = badTris.map((t) => [t.p1, t.p2, t.p3]);
 
-//   // Now that the rays have been created, we will grow them until they hit another ray
-//   // This intresection is where the boundaries will be
+        // Calculate circumcircles for visualization
+        const circumcircles = badTris.map((t) => {
+          const center = getCircumcenter(t.p1, t.p2, t.p3);
+          const radius = Math.hypot(center.x - t.p1.x, center.y - t.p1.y);
+          return { center, radius };
+        });
 
-//   // This contains all rays that were created
-//   const allRays: SamplePoint[] = [];
+        addStep(phase2Id, `Found ${badTris.length} triangle(s) whose circumcircle contains the new point`, {
+          triangles: triArray,
+          activeTriangles: badTriArray,
+          activeNode: newPoint,
+          circumcircles,
+        });
+      }
 
-//   // This contains all rays that have not been intersected yet
-//   const stillMovingRays: SamplePoint[] = [];
+      if (newTris && newTris.length > 0) {
+        const newTriArray: Array<[Point, Point, Point]> = newTris.map((t) => [t.p1, t.p2, t.p3]);
+        addStep(phase2Id, `Removed bad triangles and created ${newTris.length} new triangle(s)`, {
+          triangles: triArray,
+          newTriangles: newTriArray,
+          activeNode: newPoint,
+        });
+      }
+    }
 
-//   // This contains a list of all the intersect points
-//   const boundaryPoints: Point[] = [];
+    // Increment only when we've finished processing a point (when newTris is provided)
+    if (newTris) {
+      delaunayPointIndex++;
+    }
+  });
 
-//   for (let i = 0; i < obstacleEdges.length; i++) {
-//     const currObstacle = obstacleEdges[i];
-//     for (let j = 0; j < currObstacle.samplePoints.length; j++) {
-//       allRays.push(currObstacle.samplePoints[j]);
-//       stillMovingRays.push(currObstacle.samplePoints[j]);
-//     }
-//   }
+  const triArray: Array<[Point, Point, Point]> = triangles.map((t) => [t.p1, t.p2, t.p3]);
+  addStep(phase2Id, `Delaunay triangulation complete with ${triangles.length} triangles.`, {
+    triangles: triArray,
+  });
 
-//   // Now, check if any of the rays are already interesecting each other
-//   // returnData[0] is an array of all the new intersect points
-//   // returnData[1] is an array of all the ray indexes that can be removed from stillMovingRays
-//   const returnData = checkIntersections(allRays, stillMovingRays, boundaryData);
+  phases.push({
+    id: phase2Id,
+    name: 'Delaunay Triangulation',
+    description:
+      'Then, we create a set of triangles (a triangulation) using the sites from Phase 1. We use the Bowyer-Watson algorithm, which ensures that the triangulation is Delaunay: no site is inside the circumcircle of any triangle. This property is crucial because it maximizes the minimum internal angle, leading to a "well-formed" and stable mesh. This mesh forms the geometric dual of the Voronoi diagram.',
+    pseudocode: `Triangulation = [SuperTriangle]
+For each point P:
+    BadTriangles = {T | P inside circumcircle(T)}
+    Boundary = unique edges of BadTriangles
+    Remove BadTriangles
+    For each boundary edge (A, B):
+        Add triangle (A, B, P)`,
+    complexity: 'O(n log n) expected',
+    startStepIndex: startIdx2,
+    endStepIndex: steps.length - 1,
+  });
 
-//   for (let i = 0; i < returnData[0].length; i++) {
-//     boundaryPoints.push(returnData[0][i]);
-//     vertices.push(returnData[0][i]);
-//     update('Finding where rays intersect...');
-//   }
-//   for (let i = 0; i < returnData[1].length; i++) {
-//     stillMovingRays.splice(returnData[1][i], 1);
-//   }
+  // --- PHASE 3: VORONOI DIAGRAM ---
+  const phase3Id = 'voronoi';
+  const startIdx3 = steps.length;
 
-//   // Now, repeat this effect after increasing the size of each ray by sampleSpacing
+  // Voronoi diagram construction with visualization
+  const circumcenters = new Map<Triangle, Point>();
+  const circumcenterArray: Point[] = [];
+  const allCircumcircles: Array<{ center: Point; radius: number }> = [];
 
-//   while (stillMovingRays.length > 0) {
-//     for (let i = 0; i < stillMovingRays.length; i++) {
-//       const currRay = stillMovingRays[i];
-//       currRay.endPoint.x += currRay.dx * sampleSpacing;
-//       currRay.endPoint.y += currRay.dy * sampleSpacing;
-//       stillMovingRays[i] = currRay;
-//     }
+  const MAX_CIRCUMCENTER_STEPS = 10; // Show first 10 circumcenters
+  let circumcenterCount = 0;
 
-//     const returnData = checkIntersections(allRays, stillMovingRays, boundaryData);
-//     for (let i = 0; i < returnData[0].length; i++) {
-//       boundaryPoints.push(returnData[0][i]);
-//       vertices.push(returnData[0][i]);
-//       update('Finding where rays intersect...');
-//     }
-//     for (let i = 0; i < returnData[1].length; i++) {
-//       stillMovingRays.splice(returnData[1][i], 1);
-//     }
-//   }
+  for (const tri of triangles) {
+    const circumcenter = getCircumcenter(tri.p1, tri.p2, tri.p3);
+    const radius = Math.hypot(circumcenter.x - tri.p1.x, circumcenter.y - tri.p1.y);
 
-//   return timeline;
-// }
+    circumcenters.set(tri, circumcenter);
+    circumcenterArray.push(circumcenter);
+    allCircumcircles.push({ center: circumcenter, radius });
 
-// // Get a sample of points on a given edge AB
-// function sampleEdge(a: Point, b: Point, step: number): Point[] {
-//   const length = Math.hypot(b.x - a.x, b.y - a.y);
-//   const n = Math.max(2, Math.ceil(length / step));
-//   const points: Point[] = [];
+    if (circumcenterCount < MAX_CIRCUMCENTER_STEPS) {
+      addStep(phase3Id, `Circumcenter ${circumcenterCount + 1}/${triangles.length}: passes through all 3 vertices`, {
+        triangles: triArray,
+        activeTriangles: [[tri.p1, tri.p2, tri.p3]],
+        circumcenters: [...circumcenterArray],
+        activeCircumcenter: circumcenter,
+        circumcircles: [{ center: circumcenter, radius }],
+      });
+    }
+    circumcenterCount++;
+  }
 
-//   for (let i = 0; i <= n; i++) {
-//     const t = i / n;
-//     points.push({
-//       x: a.x + t * (b.x - a.x),
-//       y: a.y + t * (b.y - a.y),
-//     });
-//   }
-//   return points;
-// }
+  addStep(phase3Id, `All ${triangles.length} circumcenters computed`, {
+    triangles: triArray,
+    circumcenters: circumcenterArray,
+  });
 
-// // Get the winding direction of a polygon (CW or CCW)
-// function getPolygonWinding(points: Point[]): string {
-//   let area = 0;
-//   for (let i = 0; i < points.length; i++) {
-//     const a = points[i];
-//     const b = points[(i + 1) % points.length];
-//     area += a.x * b.y - b.x * a.y;
-//   }
-//   if (area > 0) return 'CCW';
-//   else return 'CW';
-// }
+  const MAX_VORONOI_EDGE_STEPS = 10; // Show first 10 edges
+  let voronoiEdgeStepCount = 0;
 
-// // Get if a ray off the edge of an object should be in the positive or negative y direction
-// // If perfectly vertical line, treat moving right as postive and left as negative
-// function getRayDirection(winding: string, a: Point, b: Point): number {
-//   const change_x = b.x - a.x;
-//   if (winding === 'CCW') {
-//     if (change_x > 0) return 1;
-//     else return 0;
-//   } else {
-//     if (change_x > 0) return 0;
-//     else return 1;
-//   }
-// }
+  const vorEdges = manualVoronoi(triangles, start, goal, circumcenters, (edgesSoFar, newEdge, isConnectingSpecial) => {
+    if (!isConnectingSpecial && voronoiEdgeStepCount < MAX_VORONOI_EDGE_STEPS) {
+      edges = edgesSoFar;
+      addStep(phase3Id, `Voronoi edge ${edgesSoFar.length}: connecting adjacent circumcenters`, {
+        circumcenters: circumcenterArray,
+        activeEdge: newEdge,
+      });
+      voronoiEdgeStepCount++;
+    }
+  });
 
-// // Returns an array of arrays, where the first sub-array is an array of all the intersect points
-// // and the second is an array of all the ray indexes that can be removed from stillMovingRays
-// function checkIntersections(
-//   allRays: SamplePoint[],
-//   raysToCheck: SamplePoint[],
-//   boundaryData: number[]
-// ): [Point[], number[]] {
-//   const foundIntersections: Point[] = [];
-//   const indexesToRemove: number[] = [];
+  // Show start/goal connection in one step
+  edges = vorEdges;
+  const startGoalEdges: [Point, Point][] = [];
+  for (const edge of vorEdges) {
+    if (edge[0] === start || edge[0] === goal || edge[1] === start || edge[1] === goal) {
+      startGoalEdges.push(edge);
+    }
+  }
 
-//   for (let i = raysToCheck.length - 1; i >= 0; i--) {
-//     const currRay = raysToCheck[i];
+  addStep(phase3Id, `Connected all Voronoi edges`, {
+    circumcenters: circumcenterArray,
+    activeEdge: startGoalEdges.length > 0 ? startGoalEdges[0] : undefined,
+  });
 
-//     // Check if ray has grown outisde boundary
-//     if (
-//       currRay.endPoint.x < boundaryData[0] ||
-//       currRay.endPoint.x > boundaryData[1] ||
-//       currRay.endPoint.y < boundaryData[2] ||
-//       currRay.endPoint.y > boundaryData[3]
-//     ) {
-//       currRay.endPoint.x = Math.min(Math.max(currRay.endPoint.x, boundaryData[0]), boundaryData[1]);
-//       currRay.endPoint.y = Math.min(Math.max(currRay.endPoint.y, boundaryData[2]), boundaryData[3]);
-//       foundIntersections.push(currRay.endPoint);
-//       indexesToRemove.push(i);
-//     }
+  addStep(phase3Id, `Voronoi diagram complete: ${vorEdges.length} edges`, {
+    circumcenters: circumcenterArray,
+  });
 
-//     for (let j = 0; j < allRays.length; j++) {
-//       const possibleIntersectRay = allRays[j];
-//       // Skip if the ray to check is the same as the current ray
-//       if (
-//         currRay.startPoint.x === possibleIntersectRay.startPoint.x &&
-//         currRay.startPoint.y === possibleIntersectRay.startPoint.y
-//       ) {
-//         continue;
-//       }
+  phases.push({
+    id: phase3Id,
+    name: 'Voronoi Diagram',
+    description:
+      "The Voronoi diagram (or Voronoi Graph) is derived from the Delaunay triangulation. Each triangle's circumcenter becomes a Voronoi vertex. When two Delaunay triangles share an edge, their circumcenters are connected, forming a Voronoi edge. This creates a partitioning where each cell contains points closest to a specific site.",
+    pseudocode: `For each Delaunay triangle T:
+    Circumcenters[T] = Circumcenter(T)
 
-//       // Check for intersection of the rays
-//       // intersectReturn[0] is True if they intersect
-//       // intersectReturn[1] is the Point where they intersect if they do
-//       const intersectReturn = intersects(currRay, possibleIntersectRay);
-//       if (intersectReturn[0]) {
-//         foundIntersections.push(intersectReturn[1]);
-//         indexesToRemove.push(i);
-//         break;
-//       }
-//     }
-//   }
+For each shared edge between triangles T1, T2:
+    Add edge (Circumcenters[T1], Circumcenters[T2])
 
-//   return [foundIntersections, indexesToRemove];
-// }
+Connect Start and Goal to their respective cells`,
+    complexity: 'O(n)',
+    startStepIndex: startIdx3,
+    endStepIndex: steps.length - 1,
+  });
 
-// // Determine if line segments/rays intersect
-// function intersects(lineOne: SamplePoint, lineTwo: SamplePoint): [boolean, Point] {
-//   const p = lineOne.startPoint;
-//   const p2 = lineOne.endPoint;
-//   const q = lineTwo.startPoint;
-//   const q2 = lineTwo.endPoint;
+  // --- PHASE 4: FILTERING & CONNECTION ---
+  const phase4Id = 'filtering';
+  const startIdx4 = steps.length;
 
-//   const r = { x: p2.x - p.x, y: p2.y - p.y };
-//   const s = { x: q2.x - q.x, y: q2.y - q.y };
+  // Filter edges against obstacles
+  const graph = new Map<string, Point[]>();
 
-//   const denom = r.x * s.y - r.y * s.x;
+  const lineIntersectsPoly = (a: Point, b: Point, poly: Point[]) => {
+    for (let i = 0; i < poly.length; i++) {
+      const p1 = poly[i];
+      const p2 = poly[(i + 1) % poly.length];
+      if (segmentsIntersect(a, b, p1, p2)) return true;
+    }
+    return isPointInPoly(a, poly) || isPointInPoly(b, poly);
+  };
 
-//   // Lines are parallel or collinear
-//   if (denom === 0) return [false, { x: 0, y: 0 }];
+  let validEdgesCount = 0;
 
-//   const t = ((q.x - p.x) * s.y - (q.y - p.y) * s.x) / denom;
-//   const u = ((q.x - p.x) * r.y - (q.y - p.y) * r.x) / denom;
+  const addToGraph = (p1: Point, p2: Point) => {
+    const k1 = getKeyString(p1);
+    const k2 = getKeyString(p2);
+    if (!graph.has(k1)) graph.set(k1, []);
+    if (!graph.has(k2)) graph.set(k2, []);
+    graph.get(k1)!.push(p2);
+    graph.get(k2)!.push(p1);
+  };
 
-//   // Check if intersection occurs within both line segments
-//   if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-//     const intersection: Point = {
-//       x: p.x + t * r.x,
-//       y: p.y + t * r.y,
-//     };
-//     return [true, intersection];
-//   }
+  edges = [];
 
-//   // Intersection is outside of the segments
-//   return [false, { x: 0, y: 0 }];
-// }
+  for (const [p1, p2] of vorEdges) {
+    let blocked = false;
 
-// export { computeVoronoi };
+    if (
+      p1.x <= 1 ||
+      p1.x >= width - 1 ||
+      p1.y <= 1 ||
+      p1.y >= height - 1 ||
+      p2.x <= 1 ||
+      p2.x >= width - 1 ||
+      p2.y <= 1 ||
+      p2.y >= height - 1
+    ) {
+      continue;
+    }
+
+    for (const obs of polygons) {
+      if (lineIntersectsPoly(p1, p2, obs)) {
+        blocked = true;
+        break;
+      }
+    }
+
+    if (!blocked) {
+      edges.push([p1, p2]);
+      addToGraph(p1, p2);
+      validEdgesCount++;
+    }
+  }
+
+  addStep(phase4Id, `Filtered edges. ${validEdgesCount} edges remain valid (clear of obstacles).`);
+
+  phases.push({
+    id: phase4Id,
+    name: 'Filtering',
+    description:
+      'Not all Voronoi edges are valid for pathfinding. In this phase, we clean the graph by removing any edge that is blocked by an obstacle or that extends beyond the canvas boundaries. The remaining set of edges and circumcenters forms a safe, traversable, collision-free graph that the pathfinding algorithm will use.',
+    pseudocode: `Graph = empty
+For each Voronoi edge (A, B):
+    If A or B outside canvas: skip
+    If edge intersects any obstacle: skip
+    Add A→B and B→A to Graph`,
+    complexity: 'O(E * V_obstacles)',
+    startStepIndex: startIdx4,
+    endStepIndex: steps.length - 1,
+  });
+
+  // --- PHASE 5: SEARCH PATH ---
+  const phase5Id = 'search';
+  const startIdx5 = steps.length;
+
+  const foundPath = runAStar(start, goal, graph);
+
+  if (foundPath.length > 0) {
+    path = foundPath;
+    addStep(phase5Id, 'Path found!', { activeState: 'valid' });
+  } else {
+    addStep(phase5Id, 'No path found.', { activeState: 'invalid' });
+  }
+
+  phases.push({
+    id: phase5Id,
+    name: 'A* Search',
+    description:
+      'With the filtered, collision-free Voronoi graph, we now use the A* search algorithm to find the shortest path from Start to Goal. A* efficiently explores the graph by minimizing the total estimated cost f(n) = g(n) + h(n), where g(n) is the actual cost from the start to node n, and h(n) is the Euclidean distance (straight-line distance) from node n to the goal.',
+    pseudocode: `OpenSet = {Start}, gScore[Start] = 0
+fScore[Start] = h(Start, Goal)
+
+While OpenSet not empty:
+    Current = node with lowest fScore
+    If Current == Goal: return path
+    For each neighbor of Current:
+        tentative_g = gScore[Current] + dist
+        If tentative_g < gScore[neighbor]:
+            Update scores and parent`,
+    complexity: 'O(E log V)',
+    startStepIndex: startIdx5,
+    endStepIndex: steps.length - 1,
+  });
+
+  return { steps, phases };
+}
+
+function ccw(A: Point, B: Point, C: Point): boolean {
+  return (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+}
+
+function segmentsIntersect(A: Point, B: Point, C: Point, D: Point): boolean {
+  return ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D);
+}
+
+function isPointInPoly(p: Point, poly: Point[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].x,
+      yi = poly[i].y;
+    const xj = poly[j].x,
+      yj = poly[j].y;
+    const intersect = yi > p.y !== yj > p.y && p.x < ((xj - xi) * (p.y - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+
+  return inside;
+}
+
+type Triangle = {
+  p1: Point;
+  p2: Point;
+  p3: Point;
+};
+
+type Edge = [Point, Point];
+
+// Returns true if point p lies inside circumcircle of triangle t
+function pointInCircumcircle(p: Point, t: Triangle): boolean {
+  const { p1, p2, p3 } = t;
+
+  const ax = p1.x - p.x;
+  const ay = p1.y - p.y;
+  const bx = p2.x - p.x;
+  const by = p2.y - p.y;
+  const cx = p3.x - p.x;
+  const cy = p3.y - p.y;
+
+  const det =
+    (ax * ax + ay * ay) * (bx * cy - cx * by) -
+    (bx * bx + by * by) * (ax * cy - cx * ay) +
+    (cx * cx + cy * cy) * (ax * by - bx * ay);
+
+  // triangle orientation (positive = CCW)
+  const orient = (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x);
+
+  // If triangle is CW, the determinant flips sign
+  return orient > 0 ? det > 0 : det < 0;
+}
+
+// Creates a canonical ordered edge representation so duplicates can be removed
+function canonicalEdge(p1: Point, p2: Point): Edge {
+  return p1.x < p2.x || (p1.x === p2.x && p1.y <= p2.y) ? [p1, p2] : [p2, p1];
+}
+
+function sameEdge(e1: Edge, e2: Edge): boolean {
+  return e1[0].x === e2[0].x && e1[0].y === e2[0].y && e1[1].x === e2[1].x && e1[1].y === e2[1].y;
+}
+
+function manualDelaunay(
+  points: Point[],
+  onStep?: (
+    currentTriangles: Triangle[],
+    newPoint?: Point,
+    badTriangles?: Triangle[],
+    boundaryEdges?: Edge[],
+    newTriangles?: Triangle[]
+  ) => void
+): Triangle[] {
+  // Start with a single large supertriangle that encloses all the points
+  const minX = Math.min(...points.map((p) => p.x));
+  const maxX = Math.max(...points.map((p) => p.x));
+  const minY = Math.min(...points.map((p) => p.y));
+  const maxY = Math.max(...points.map((p) => p.y));
+
+  const dx = maxX - minX;
+  const dy = maxY - minY;
+  const deltaMax = Math.max(dx, dy) * 10;
+
+  const midX = (minX + maxX) / 2;
+  const midY = (minY + maxY) / 2;
+
+  const p1 = { x: midX - deltaMax, y: midY - deltaMax };
+  const p2 = { x: midX, y: midY + deltaMax };
+  const p3 = { x: midX + deltaMax, y: midY - deltaMax };
+
+  let triangles: Triangle[] = [{ p1, p2, p3 }];
+
+  // Insert the points one at a time
+  for (const point of points) {
+    onStep?.(triangles, point);
+
+    const badTriangles: Triangle[] = [];
+
+    // Find all triangles whose circumcircle contains the given point
+    for (const tri of triangles) {
+      if (pointInCircumcircle(point, tri)) {
+        badTriangles.push(tri);
+      }
+    }
+
+    onStep?.(triangles, point, badTriangles);
+
+    // Find all boundary edges of the polygonal hole
+    const boundaryEdges: Edge[] = [];
+
+    for (const tri of badTriangles) {
+      const edges: Edge[] = [
+        canonicalEdge(tri.p1, tri.p2),
+        canonicalEdge(tri.p2, tri.p3),
+        canonicalEdge(tri.p3, tri.p1),
+      ];
+
+      for (const e of edges) {
+        const idx = boundaryEdges.findIndex((edge) => sameEdge(edge, e));
+        if (idx === -1) {
+          boundaryEdges.push(e);
+        } else {
+          boundaryEdges.splice(idx, 1);
+        }
+      }
+    }
+
+    // Remove the "bad" triangles
+    triangles = triangles.filter((t) => !badTriangles.includes(t));
+
+    // Create new triangles that replace the bad triangles removed
+    const newTriangles: Triangle[] = [];
+    for (const [a, b] of boundaryEdges) {
+      const newTri = { p1: a, p2: b, p3: point };
+      triangles.push(newTri);
+      newTriangles.push(newTri);
+    }
+
+    onStep?.(triangles, point, undefined, boundaryEdges, newTriangles);
+  }
+
+  // Do last cleanup, removing triangles touching the original supertriangle points
+  triangles = triangles.filter(
+    (t) =>
+      t.p1 !== p1 &&
+      t.p2 !== p1 &&
+      t.p3 !== p1 &&
+      t.p1 !== p2 &&
+      t.p2 !== p2 &&
+      t.p3 !== p2 &&
+      t.p1 !== p3 &&
+      t.p2 !== p3 &&
+      t.p3 !== p3
+  );
+
+  return triangles;
+}
+
+function getCircumcenter(a: Point, b: Point, c: Point): Point {
+  const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+
+  const ux =
+    ((a.x ** 2 + a.y ** 2) * (b.y - c.y) + (b.x ** 2 + b.y ** 2) * (c.y - a.y) + (c.x ** 2 + c.y ** 2) * (a.y - b.y)) /
+    d;
+
+  const uy =
+    ((a.x ** 2 + a.y ** 2) * (c.x - b.x) + (b.x ** 2 + b.y ** 2) * (a.x - c.x) + (c.x ** 2 + c.y ** 2) * (b.x - a.x)) /
+    d;
+
+  return { x: ux, y: uy };
+}
+
+function edgeKey(a: Point, b: Point): string {
+  // canonical ordering
+  const p = a.x < b.x || (a.x === b.x && a.y <= b.y) ? a : b;
+  const q = p === a ? b : a;
+  return `${p.x},${p.y}-${q.x},${q.y}`;
+}
+
+function triangleContains(triangle: Triangle, target: Point): boolean {
+  const a = triangle.p1;
+  const b = triangle.p2;
+  const c = triangle.p3;
+  return (
+    (a.x === target.x && a.y === target.y) ||
+    (b.x === target.x && b.y === target.y) ||
+    (c.x === target.x && c.y === target.y)
+  );
+}
+
+function manualVoronoi(
+  triangles: Triangle[],
+  start: Point,
+  goal: Point,
+  circumcenters: Map<Triangle, Point>,
+  onStep?: (edges: Edge[], newEdge?: Edge, isConnectingSpecial?: boolean) => void
+): Edge[] {
+  // Create adjacency for triangles
+  const edgeMap = new Map<string, Triangle[]>();
+  const vorEdges: Edge[] = [];
+
+  for (const tri of triangles) {
+    const edges: Edge[] = [
+      [tri.p1, tri.p2],
+      [tri.p2, tri.p3],
+      [tri.p3, tri.p1],
+    ];
+
+    for (const [a, b] of edges) {
+      const key = edgeKey(a, b);
+      if (!edgeMap.has(key)) edgeMap.set(key, []);
+      edgeMap.get(key)!.push(tri);
+    }
+  }
+
+  // Create all regular Voronoi edges
+  for (const [_, tris] of edgeMap.entries()) {
+    if (tris.length === 2) {
+      const c1 = circumcenters.get(tris[0]);
+      const c2 = circumcenters.get(tris[1]);
+      const edge: Edge = [c1!, c2!];
+      vorEdges.push(edge);
+      onStep?.(vorEdges, edge, false);
+    }
+  }
+
+  // Connect start and goal (done outside, after this function returns)
+  for (const tri of triangles) {
+    if (triangleContains(tri, start)) {
+      const edge: Edge = [start, circumcenters.get(tri)!];
+      vorEdges.push(edge);
+    }
+    if (triangleContains(tri, goal)) {
+      const edge: Edge = [goal, circumcenters.get(tri)!];
+      vorEdges.push(edge);
+    }
+  }
+
+  return vorEdges;
+}

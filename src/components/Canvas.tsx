@@ -6,23 +6,49 @@ const POINT_RADIUS = 5;
 const HOVER_RADIUS = 10;
 const SPECIAL_POINT_RADIUS = 12;
 
+const hexToRgba = (hex: string, alpha: number) => {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const ACCENTS = {
+  blue: '#155dfc',
+  amber: '#f89c0b',
+  green: '#00a63e',
+  red: '#ef4444',
+};
+
+const GRAY = {
+  50: '#fafafa',
+  100: '#f7f7f7',
+  200: '#efefef',
+  300: '#d9d9d9',
+  400: '#bfbfbf',
+  500: '#8c8c8c',
+  700: '#4d4d4d',
+  900: '#111111',
+};
+
 const THEME = {
   poly: {
-    fill: 'rgba(148, 163, 184, 0.2)',
-    stroke: '#94a3b8',
-    hover: '#3b82f6',
-    delete: '#ef4444',
-    deleteFill: 'rgba(239, 68, 68, 0.2)',
+    fill: hexToRgba(GRAY[700], 0.1),
+    stroke: GRAY[500],
+    hover: ACCENTS.blue,
+    delete: ACCENTS.red,
+    deleteFill: hexToRgba(ACCENTS.red, 0.12),
   },
   active: {
-    line: '#3b82f6',
-    check: '#f59e0b',
-    valid: '#10b981',
-    invalid: '#ef4444',
+    line: ACCENTS.blue,
+    check: ACCENTS.amber,
+    valid: ACCENTS.green,
+    invalid: ACCENTS.red,
   },
   graph: {
-    edge: 'rgba(203, 213, 225, 1)',
-    node: '#94a3b8',
+    edge: GRAY[400],
+    node: GRAY[500],
   },
 };
 
@@ -49,8 +75,8 @@ const drawPath = (ctx: CanvasRenderingContext2D, path: Point[], color: string, i
     for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
     ctx.stroke();
 
-    ctx.setLineDash([]); // Reset line dash
-    ctx.shadowBlur = 0; // Reset shadow
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
   }
 };
 
@@ -89,12 +115,10 @@ export default function Canvas() {
     const container = containerRef.current;
     if (!container) return;
 
-    // Set up the observer to watch the container div for size changes
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       const { width, height } = entry.contentRect;
 
-      // Update the store only if the size has actually changed significantly
       if (Math.abs(canvasSize.width - width) > 1 || Math.abs(canvasSize.height - height) > 1) {
         state.setCanvasSize({ width, height });
       }
@@ -102,25 +126,26 @@ export default function Canvas() {
 
     observer.observe(container);
 
-    // Cleanup function
     return () => observer.unobserve(container);
   }, [state, canvasSize.width, canvasSize.height]);
 
-  // Main Draw Cycle
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Apply dimensions from store to canvas element to match CSS size
-    canvas.width = canvasSize.width;
-    canvas.height = canvasSize.height;
+    // Handle device pixel ratio for high DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvasSize.width * dpr;
+    canvas.height = canvasSize.height * dpr;
+    canvas.style.width = canvasSize.width + 'px';
+    canvas.style.height = canvasSize.height + 'px';
+    ctx.scale(dpr, dpr);
 
-    // Clear
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
 
-    // Draw Polygons (Obstacles)
+    // Draw Obstacle Polygons
     polygons.forEach((poly, polyIdx) => {
       const isHovered = hoveredPolygon?.polygonIdx === polyIdx && hoveredPolygon.type === 'body';
       const isDeleteMode = mode === 'delete';
@@ -130,19 +155,17 @@ export default function Canvas() {
       for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y);
       ctx.closePath();
 
-      // Fill
       if (isDeleteMode && isHovered) ctx.fillStyle = THEME.poly.deleteFill;
       else ctx.fillStyle = THEME.poly.fill;
       ctx.fill();
 
-      // Stroke
       ctx.lineWidth = 2;
       if (isDeleteMode && isHovered) ctx.strokeStyle = THEME.poly.delete;
       else if (isHovered) ctx.strokeStyle = THEME.poly.hover;
       else ctx.strokeStyle = THEME.poly.stroke;
       ctx.stroke();
 
-      // Vertices
+      // Draw Polygon Vertices
       poly.forEach((pt, ptIdx) => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, POINT_RADIUS, 0, Math.PI * 2);
@@ -150,27 +173,111 @@ export default function Canvas() {
 
         if (isDeleteMode && isPointHovered) ctx.fillStyle = THEME.poly.delete;
         else if (isPointHovered || isHovered) ctx.fillStyle = THEME.poly.hover;
-        else ctx.fillStyle = '#64748b'; // Slate-500
+        else ctx.fillStyle = GRAY[500];
 
         ctx.fill();
       });
     });
 
-    // Draw Algorithm State / Comparison Paths
+    // Draw Final Paths for Comparison Mode
     if (algorithm === 'compare') {
-      // Draw Voronoi Path (Max Clearance - Yellow/Orange and dashed)
       if (finalVoronoiStep?.path) {
         drawPath(ctx, finalVoronoiStep.path, THEME.active.line, false);
       }
-
-      // Draw Visibility Path (Shortest Path - Green/Valid and solid)
       if (finalVisStep?.path) {
         drawPath(ctx, finalVisStep.path, THEME.active.valid, false);
       }
-    } else if (currentStep >= 0 && currentStep < timeline.length) {
+    }
+    // Draw Algorithm Visualization Steps
+    else if (currentStep >= 0 && currentStep < timeline.length) {
       const step = timeline[currentStep];
 
-      // Static Graph Edges
+      // Draw Circumcircles
+      if (step.circumcircles) {
+        step.circumcircles.forEach(({ center, radius }) => {
+          ctx.beginPath();
+          ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = ACCENTS.amber;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 5]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
+
+      // Draw Delaunay Triangles
+      if (step.triangles) {
+        ctx.strokeStyle = THEME.graph.edge;
+        ctx.fillStyle = hexToRgba(GRAY[500], 0.03);
+        ctx.lineWidth = 1;
+
+        step.triangles.forEach((tri) => {
+          ctx.beginPath();
+          ctx.moveTo(tri[0].x, tri[0].y);
+          ctx.lineTo(tri[1].x, tri[1].y);
+          ctx.lineTo(tri[2].x, tri[2].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      // Draw Active Triangles (being processed/removed)
+      if (step.activeTriangles) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ACCENTS.red;
+        ctx.fillStyle = hexToRgba(ACCENTS.red, 0.15);
+
+        step.activeTriangles.forEach((tri) => {
+          ctx.beginPath();
+          ctx.moveTo(tri[0].x, tri[0].y);
+          ctx.lineTo(tri[1].x, tri[1].y);
+          ctx.lineTo(tri[2].x, tri[2].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      // Draw New Triangles (being added)
+      if (step.newTriangles) {
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ACCENTS.green;
+        ctx.fillStyle = hexToRgba(ACCENTS.green, 0.15);
+
+        step.newTriangles.forEach((tri) => {
+          ctx.beginPath();
+          ctx.moveTo(tri[0].x, tri[0].y);
+          ctx.lineTo(tri[1].x, tri[1].y);
+          ctx.lineTo(tri[2].x, tri[2].y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
+
+      // Draw Circumcenters
+      if (step.circumcenters) {
+        ctx.fillStyle = ACCENTS.blue;
+        step.circumcenters.forEach((c) => {
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Draw Active Circumcenter
+      if (step.activeCircumcenter) {
+        ctx.beginPath();
+        ctx.arc(step.activeCircumcenter.x, step.activeCircumcenter.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = hexToRgba(ACCENTS.blue, 0.3);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = ACCENTS.blue;
+        ctx.stroke();
+      }
+
+      // Draw Graph Edges
       if (step.edges) {
         ctx.lineWidth = 1;
         ctx.strokeStyle = THEME.graph.edge;
@@ -182,7 +289,31 @@ export default function Canvas() {
         });
       }
 
-      // Static Graph Vertices
+      // Draw Graph Edges
+      if (step.edges) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = THEME.graph.edge;
+        step.edges.forEach(([p1, p2]) => {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        });
+      }
+
+      // Draw Graph Edges
+      if (step.edges) {
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = THEME.graph.edge;
+        step.edges.forEach(([p1, p2]) => {
+          ctx.beginPath();
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.stroke();
+        });
+      }
+
+      // Draw Graph Vertices/Nodes
       if (step.vertices) {
         ctx.fillStyle = THEME.graph.node;
         step.vertices.forEach((v) => {
@@ -192,9 +323,7 @@ export default function Canvas() {
         });
       }
 
-      // Active Elements
-
-      // Scan Line (Raycasting / Checking)
+      // Draw Scan Line (e.g., in Visibility Graph)
       if (step.scanLine) {
         const [p1, p2] = step.scanLine;
         ctx.setLineDash([5, 5]);
@@ -204,10 +333,10 @@ export default function Canvas() {
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         ctx.stroke();
-        ctx.setLineDash([]); // Reset
+        ctx.setLineDash([]);
       }
 
-      // Active Edge (Newly added or traversed)
+      // Draw Active Edge being processed
       if (step.activeEdge) {
         const [p1, p2] = step.activeEdge;
         ctx.lineWidth = 3;
@@ -218,20 +347,20 @@ export default function Canvas() {
         ctx.stroke();
       }
 
-      // Active Node (Current A* node)
+      // Draw Active Node being processed
       if (step.activeNode) {
         ctx.beginPath();
         ctx.arc(step.activeNode.x, step.activeNode.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(59, 130, 246, 0.3)';
+        ctx.fillStyle = hexToRgba(ACCENTS.blue, 0.3);
         ctx.fill();
         ctx.lineWidth = 2;
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = ACCENTS.blue;
         ctx.stroke();
       }
 
-      // Final Path
+      // Draw Final/Current Path
       if (step.path && step.path.length > 1) {
-        ctx.shadowColor = 'rgba(16, 185, 129, 0.5)';
+        ctx.shadowColor = hexToRgba(ACCENTS.green, 0.5);
         ctx.shadowBlur = 10;
         ctx.lineWidth = 4;
         ctx.strokeStyle = THEME.active.valid;
@@ -243,9 +372,9 @@ export default function Canvas() {
       }
     }
 
-    // Draw Current Drawing (Incomplete Polygon)
+    // Draw Polygon under construction
     if (!isComplete && currentPoints.length > 0) {
-      ctx.strokeStyle = '#64748b';
+      ctx.strokeStyle = GRAY[500];
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(currentPoints[0].x, currentPoints[0].y);
@@ -253,13 +382,12 @@ export default function Canvas() {
       ctx.stroke();
 
       if (mousePos) {
-        ctx.strokeStyle = '#3b82f6';
+        ctx.strokeStyle = ACCENTS.blue;
         ctx.beginPath();
         ctx.moveTo(currentPoints[currentPoints.length - 1].x, currentPoints[currentPoints.length - 1].y);
         ctx.lineTo(mousePos.x, mousePos.y);
         ctx.stroke();
 
-        // Closing Hint
         if (currentPoints.length > 2) {
           const d = dist(mousePos, currentPoints[0]);
           if (d < HOVER_RADIUS) {
@@ -271,26 +399,22 @@ export default function Canvas() {
         }
       }
 
+      // Draw Vertices of the polygon under construction
       currentPoints.forEach((pt, idx) => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, POINT_RADIUS, 0, Math.PI * 2);
-        ctx.fillStyle = idx === 0 ? '#3b82f6' : '#64748b';
+        ctx.fillStyle = idx === 0 ? ACCENTS.blue : GRAY[500];
         ctx.fill();
       });
     }
 
-    // Draw Special Points (Start/Goal)
-    const drawSpecial = (pt: Point, label: string, color: string, isHovered: boolean) => {
+    // Helper function to draw Start and Goal points
+    const drawSpecial = (pt: Point, label: string, color: string) => {
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, SPECIAL_POINT_RADIUS, 0, Math.PI * 2);
       ctx.fillStyle = color;
       ctx.fill();
 
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = isHovered ? '#ffffff' : 'rgba(255,255,255,0.8)';
-      ctx.stroke();
-
-      // Text Label
       ctx.fillStyle = 'white';
       ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
@@ -298,11 +422,12 @@ export default function Canvas() {
       ctx.fillText(label, pt.x, pt.y);
     };
 
-    drawSpecial(startPoint, 'S', '#10B981', hoveredSpecialPoint === 'start');
-    drawSpecial(goalPoint, 'G', '#F59E0B', hoveredSpecialPoint === 'goal');
+    // Draw Start Point
+    drawSpecial(startPoint, 'S', ACCENTS.green);
+    // Draw Goal Point
+    drawSpecial(goalPoint, 'G', ACCENTS.amber);
   });
 
-  // Interaction Helpers
   const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -346,13 +471,10 @@ export default function Canvas() {
     return null;
   };
 
-  // Event Handlers
-
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getMousePos(e);
     state.setHasDragged(false);
 
-    // Check Special Points
     const specialPt = getSpecialPointAtPosition(pos);
     if (specialPt) {
       state.setDraggedSpecialPoint(specialPt);
@@ -362,10 +484,8 @@ export default function Canvas() {
       return;
     }
 
-    // Check Polygon Vertices
     const point = getPointAtPosition(pos);
     if (mode === 'edit' || mode === 'delete') {
-      // Allow dragging/hovering points in delete mode too
       if (point !== null) {
         state.setDraggedPoint(point);
         state.setDragOffset({
@@ -374,10 +494,8 @@ export default function Canvas() {
         });
         state.setCursor('grabbing');
       } else {
-        // 3. Check Polygon Bodies
         const polyIdx = getPolygonAtPosition(pos);
         if (polyIdx !== null && mode === 'edit') {
-          // Only drag polygon in edit mode
           state.setIsDraggingPolygon(polyIdx);
           state.setDragOffset({ x: pos.x, y: pos.y });
           state.setCursor('grabbing');
@@ -390,7 +508,6 @@ export default function Canvas() {
     const pos = getMousePos(e);
     state.setMousePos(pos);
 
-    // Dragging
     if (draggedSpecialPoint !== null) {
       state.setHasDragged(true);
       const newPos = { x: pos.x - dragOffset.x, y: pos.y - dragOffset.y };
@@ -427,7 +544,6 @@ export default function Canvas() {
 
     let tip = null;
 
-    // Hover Special Points
     const specialPt = getSpecialPointAtPosition(pos);
     state.setHoveredSpecialPoint(specialPt);
     if (specialPt) {
@@ -436,7 +552,6 @@ export default function Canvas() {
       state.setHoveredPolygon(null);
       tip = specialPt === 'start' ? 'Start Point' : 'Goal Point';
     } else {
-      // Hover Vertices
       const point = getPointAtPosition(pos);
       state.setHoveredPoint(point);
 
@@ -445,7 +560,6 @@ export default function Canvas() {
         state.setHoveredPolygon(null);
         tip = mode === 'delete' ? 'Click to delete obstacle vertex' : 'Drag to move obstacle vertex';
       } else {
-        // Hover Polygons
         const polyIdx = getPolygonAtPosition(pos);
         if (polyIdx !== null) {
           state.setHoveredPolygon({ polygonIdx: polyIdx, type: 'body' });
@@ -458,17 +572,66 @@ export default function Canvas() {
       }
     }
 
-    // Algorithm Visualization Tooltips
     if (!tip && currentStep >= 0 && currentStep < timeline.length) {
       const step = timeline[currentStep];
 
-      // Check Active Node
-      if (step.activeNode && dist(pos, step.activeNode) < 10) {
-        tip = 'Current Node being processed';
+      // Check hover on final path
+      if (step.path && step.path.length > 1) {
+        for (let i = 0; i < step.path.length - 1; i++) {
+          if (distToSegment(pos, step.path[i], step.path[i + 1]) < 10) {
+            tip = 'Final Path';
+            break;
+          }
+        }
       }
-      // Check Active Edge
-      else if (step.activeEdge && distToSegment(pos, step.activeEdge[0], step.activeEdge[1]) < 8) {
-        tip = 'Connection being verified';
+
+      // Check hover on path points
+      if (!tip && step.path) {
+        for (const pt of step.path) {
+          if (dist(pos, pt) < 8) {
+            tip = 'Path Point';
+            break;
+          }
+        }
+      }
+
+      // Check hover on active edge (being verified)
+      if (!tip && step.activeEdge) {
+        if (distToSegment(pos, step.activeEdge[0], step.activeEdge[1]) < 8) {
+          tip = step.activeState === 'valid' ? 'Valid Edge' : 'Invalid Edge';
+        }
+      }
+
+      // Check hover on scan line (visibility check in progress)
+      if (!tip && step.scanLine) {
+        if (distToSegment(pos, step.scanLine[0], step.scanLine[1]) < 8) {
+          tip = step.activeState === 'invalid' ? 'Invalid Edge' : 'Visibility Check';
+        }
+      }
+
+      // Check hover on graph edges (computed edges)
+      if (!tip && step.edges) {
+        for (const [p1, p2] of step.edges) {
+          if (distToSegment(pos, p1, p2) < 6) {
+            tip = 'Graph Edge';
+            break;
+          }
+        }
+      }
+
+      // Check hover on graph vertices
+      if (!tip && step.vertices) {
+        for (let i = 0; i < step.vertices.length; i++) {
+          if (dist(pos, step.vertices[i]) < 8) {
+            tip = `Vertex ${i}`;
+            break;
+          }
+        }
+      }
+
+      // Check hover on active node (being processed in pathfinding)
+      if (!tip && step.activeNode && dist(pos, step.activeNode) < 10) {
+        tip = 'Active Node';
       }
     }
 
@@ -489,17 +652,15 @@ export default function Canvas() {
 
     if (mode === 'delete') {
       const point = getPointAtPosition(pos);
-      // Delete Vertex
       if (point !== null) {
         const newPolygons = [...polygons];
         newPolygons[point.polygonIdx].splice(point.pointIdx, 1);
         if (newPolygons[point.polygonIdx].length < 3) {
-          newPolygons.splice(point.polygonIdx, 1); // Remove if too few points
+          newPolygons.splice(point.polygonIdx, 1);
         }
         state.setPolygons(newPolygons);
         return;
       }
-      // Delete Polygon
       const polyIdx = getPolygonAtPosition(pos);
       if (polyIdx !== null) {
         state.setPolygons(polygons.filter((_, idx) => idx !== polyIdx));
@@ -508,7 +669,6 @@ export default function Canvas() {
     }
 
     if (mode === 'edit') {
-      // Closing a polygon?
       if (currentPoints.length > 2) {
         const d = dist(pos, currentPoints[0]);
         if (d < HOVER_RADIUS) {
@@ -519,7 +679,6 @@ export default function Canvas() {
         }
       }
 
-      // Start new polygon or add point
       if (isComplete) {
         state.setCurrentPoints([pos]);
         state.setIsComplete(false);
@@ -530,10 +689,10 @@ export default function Canvas() {
   };
 
   return (
-    <div ref={containerRef} className="p-2 pl-0 pt-0 relative w-full flex-1 overflow-hidden disable-selection">
+    <div ref={containerRef} className="pr-4 pb-4 relative w-full flex-1 disable-selection">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block touch-none"
+        className="w-full h-full block touch-none border border-black/10 bg-black/5 rounded-xl"
         style={{ cursor }}
         width={canvasSize.width}
         height={canvasSize.height}
@@ -544,10 +703,9 @@ export default function Canvas() {
         onMouseLeave={handleMouseUp}
       />
 
-      {/* Floating Tooltip */}
       {canvasTooltip && mousePos && (
         <div
-          className="absolute pointer-events-none z-50 backdrop-blur-xs bg-gray-900/70 text-white text-xs px-2 py-1.5 rounded shadow-lg transform translate-x-4 translate-y-4 whitespace-nowrap"
+          className="absolute pointer-events-none z-50 backdrop-blur-xs bg-black/70 text-white text-xs px-2 py-1.5 rounded shadow-lg transform translate-x-4 translate-y-4 whitespace-nowrap"
           style={{ left: mousePos.x, top: mousePos.y }}
         >
           {canvasTooltip}

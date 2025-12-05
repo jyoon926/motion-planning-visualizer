@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: 'neue-haas-grotesk-text', Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
@@ -22,7 +22,7 @@
 }
 
 html {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 input[type='range'] {

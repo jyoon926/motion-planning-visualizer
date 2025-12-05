@@ -113,7 +113,7 @@ export const useStore = create<AppState>((set) => ({
   goalPoint: { x: 500, y: 200 },
 
   params: {
-    voronoiSampleDist: 20,
+    voronoiSampleDist: 50,
   },
 
   mode: 'edit',
@@ -180,7 +180,6 @@ export const useStore = create<AppState>((set) => ({
   setCurrentStep: (updater) =>
     set((state) => {
       const nextStep = typeof updater === 'function' ? updater(state.currentStep) : updater;
-      // Determine active phase based on step
       const activePhase = state.phases.find((p) => nextStep >= p.startStepIndex && nextStep <= p.endStepIndex);
       return {
         currentStep: nextStep,

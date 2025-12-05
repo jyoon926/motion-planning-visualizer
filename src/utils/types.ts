@@ -9,7 +9,7 @@ export interface Parameters {
 
 // Visual metadata for a single step
 export interface AlgorithmStep {
-  phaseId: string; // Links step to a high-level phase
+  phaseId: string;
   message: string;
 
   // State Snapshots
@@ -17,11 +17,19 @@ export interface AlgorithmStep {
   edges: [Point, Point][];
   path: Point[];
 
-  // Active/Highlight elements (The "doing" part)
+  // Active/Highlight elements
   activeEdge?: [Point, Point];
   activeNode?: Point;
   scanLine?: [Point, Point]; // e.g. a ray being cast
   activeState?: 'valid' | 'invalid' | 'checking' | 'neutral';
+
+  // Voronoi-specific visualization
+  triangles?: Array<[Point, Point, Point]>;
+  activeTriangles?: Array<[Point, Point, Point]>;
+  circumcenters?: Point[];
+  activeCircumcenter?: Point;
+  circumcircles?: Array<{ center: Point; radius: number }>;
+  newTriangles?: Array<[Point, Point, Point]>;
 }
 
 export interface AlgorithmPhase {
