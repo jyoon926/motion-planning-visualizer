@@ -59,8 +59,7 @@ export function computeVisibilityGraph(
     name: 'Initialization',
     description:
       'We begin by defining the nodes (vertices) of our graph. These include the start point, the goal point, and all vertices of the obstacles.',
-    pseudocode: `// 1. Define Vertices
-V = {start, goal} + Vertices(obstacles)`,
+    pseudocode: `V = {start, goal} + Vertices(obstacles)`,
     complexity: 'O(V)',
     startStepIndex: startIdx1,
     endStepIndex: steps.length - 1,
@@ -70,6 +69,7 @@ V = {start, goal} + Vertices(obstacles)`,
   const phase2Id = 'visibility';
   const startIdx2 = steps.length;
 
+  /*
   // FAST IMPLEMENTATION: Add visible edges
   for (let p = 0; p < currentVertices.length; p++){
     findVisibleEdges(p, currentVertices, polygons).forEach((edge: [Point, Point]) => {
@@ -95,9 +95,8 @@ V = {start, goal} + Vertices(obstacles)`,
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
   });
-
-/*
-// SLOW IMPLEMENTATION
+*/
+// NAIVE IMPLEMENTATION
   const ccw = (A: Point, B: Point, C: Point): boolean => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
   const segmentsIntersect = (A: Point, B: Point, C: Point, D: Point): boolean =>
     ccw(A, C, D) !== ccw(B, C, D) && ccw(A, B, C) !== ccw(A, B, D);
@@ -178,7 +177,7 @@ V = {start, goal} + Vertices(obstacles)`,
     id: phase2Id,
     name: 'Building Visibility Graph',
     description:
-      'We check line of sight between vertices to build the graph. An edge connects two vertices only if the line segment between them is unobstructed. The visualization shows all checks from the first few source vertices.',
+      'We check line of sight (LOS) between vertices to build the graph. An edge connects two vertices only if the line segment between them is unobstructed. The visualization shows all checks from the first few source vertices.',
     pseudocode: `For each pair of vertices (u, v) in V:
     If LOS(u, v) is clear (does not intersect any obstacle edge):
         Add edge (u, v) to G
@@ -190,7 +189,7 @@ function SegmentsIntersect(A, B, C, D):
     startStepIndex: startIdx2,
     endStepIndex: steps.length - 1,
   });
-*/
+
 
   // --- PHASE 3: PATHFINDING (A*) ---
   const phase3Id = 'astar';
