@@ -44,7 +44,8 @@ export default function About({ onClose }: Props) {
               <p className="mt-3 text-black/60">
                 This method constructs a Voronoi Diagram where all points are equidistant to two or more obstacles. The
                 path is constrained to follow the 'skeletal' structure of the free space, effectively maximizing the
-                distance (clearance) to all obstacles.
+                distance (clearance) to all obstacles. This path still finds the shortest path from the start to end, but will 
+                maximize the clearance on that path.
               </p>
               <p className="font-bold mt-3">Goal: Maximum Obstacle Clearance (Safest)</p>
             </div>
