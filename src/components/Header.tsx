@@ -1,25 +1,30 @@
-// Header.tsx
-
 import { useStore } from '../utils/store';
 import type { AlgorithmType } from '../utils/types';
-import { MdInfoOutline } from 'react-icons/md'; // Import icon for About button
+import { MdInfoOutline } from 'react-icons/md';
 
 export default function Header() {
   const {
     mode,
     setMode,
     algorithm,
+    timeline,
     setAlgorithm,
     setPolygons,
     setIsComplete,
     setCurrentPoints,
-    setIsAboutDialogOpen, // Get the setter
+    setIsAboutDialogOpen,
+    setStartPoint,
+    setGoalPoint,
+    setCurrentStep,
   } = useStore();
 
   const handleClear = () => {
     setPolygons([]);
     setCurrentPoints([]);
     setIsComplete(true);
+    setStartPoint({ x: 100, y: 200 });
+    setGoalPoint({ x: 500, y: 200 });
+    setCurrentStep(timeline.length - 1);
   };
 
   return (
