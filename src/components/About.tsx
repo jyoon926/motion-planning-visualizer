@@ -58,10 +58,21 @@ export default function About({ onClose }: Props) {
               </p>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-between items-end gap-10">
+              <div>
+                <p>
+                  <b>Front-end:</b> Jacob Yoon
+                </p>
+                <p>
+                  <b>Visibility graph implementation:</b> Lydia Klecan
+                </p>
+                <p>
+                  <b>Voronoi path implementation:</b> Tyler Lapiana
+                </p>
+              </div>
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 bg-black text-white font-medium rounded-lg shadow hover:bg-black/80 transition-colors"
+                className="text-nowrap px-6 py-2.5 bg-black text-white font-medium rounded-lg shadow hover:bg-black/80 transition-colors"
               >
                 Start Visualizing
               </button>
