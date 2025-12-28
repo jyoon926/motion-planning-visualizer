@@ -105,20 +105,6 @@ export default function Timeline() {
   return (
     <div className={`disable-selection ${algorithm === 'compare' && 'pointer-events-none opacity-50'}`}>
       <div className="w-full h-auto p-4 pt-0 flex flex-col gap-3">
-        {/* Current Action Message */}
-        <div className="flex justify-between items-end">
-          <div className="h-5">
-            {timeline.length > 0 && (
-              <p className="animate-fade-in">
-                <span className="font-bold mr-2">
-                  Frame {currentStep + 1} of {totalFrames}:
-                </span>
-                {timeline[currentStep].message}
-              </p>
-            )}
-          </div>
-        </div>
-
         {/* Custom Segmented Timeline Track */}
         <div
           ref={trackRef}
@@ -127,7 +113,7 @@ export default function Timeline() {
         >
           <div className="absolute inset-0 flex w-full h-full gap-1">
             {algorithm === 'compare' ? (
-              <div className="h-full rounded-lg transition-colors duration-200 relative flex justify-center bg-black/10 w-full" />
+              <div className="h-full rounded-lg transition-colors duration-200 relative flex justify-center bg-text/8 w-full" />
             ) : (
               phases.map((phase) => {
                 const duration = phase.endStepIndex - phase.startStepIndex + 1;
@@ -137,7 +123,7 @@ export default function Timeline() {
                   <div
                     key={phase.id}
                     className={`h-full rounded-lg transition-colors duration-200 relative flex justify-center
-                    ${phase.id === hoveredPhaseId ? 'bg-black/20' : 'bg-black/10'}
+                    ${phase.id === hoveredPhaseId ? 'bg-text/20' : 'bg-text/8'}
                   `}
                     style={{ width: `${widthPct}%` }}
                     onMouseEnter={() => setHoveredPhaseId(phase.id)}
@@ -145,7 +131,7 @@ export default function Timeline() {
                   >
                     {/* Phase Name Popup */}
                     {phase.id === hoveredPhaseId && (
-                      <span className="absolute top-[-32px] text-xs bg-black/70 backdrop-blur text-white px-2 py-1.5 rounded shadow-lg whitespace-nowrap">
+                      <span className="absolute top-[-32px] text-xs bg-text/60 backdrop-blur-[0.25em] text-white px-2 py-1.5 rounded shadow-md whitespace-nowrap">
                         {phase.name}
                       </span>
                     )}
@@ -157,7 +143,7 @@ export default function Timeline() {
 
           {/* Scrubber Knob */}
           <div
-            className="absolute top-0 h-full rounded-lg bg-black/20 border-2 border-black shadow-md pointer-events-none z-10"
+            className="absolute top-0 h-full rounded-lg bg-text/20 border-2 border-text shadow-md pointer-events-none z-10"
             style={{
               left: scrubberStyle.left,
               width: scrubberStyle.width,
@@ -168,24 +154,36 @@ export default function Timeline() {
 
         {/* Controls Row */}
         <div className="flex items-center justify-between gap-6">
-          <div className="flex flex-1 items-center justify-center gap-2 text-xl">
+          {/* Current Action Message */}
+          <div className="w-1/3 flex justify-between items-center leading-5 h-10">
+            {timeline.length > 0 && (
+              <p className="animate-fade-in">
+                <span className="font-bold mr-2">
+                  Frame {currentStep + 1} of {totalFrames}:
+                </span>
+                {timeline[currentStep].message}
+              </p>
+            )}
+          </div>
+
+          <div className="w-1/3 flex flex-1 items-center justify-center gap-2 text-xl">
             {/* Skip to Start */}
-            <button onClick={() => setCurrentStep(0)} className="p-2 rounded-full hover:bg-black/10">
+            <button onClick={() => setCurrentStep(0)} className="p-2 rounded-full duration-300 hover:bg-text/8">
               <MdFirstPage />
             </button>
 
             {/* Previous */}
             <button
               onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-              className="p-2 rounded-full hover:bg-black/10"
+              className="p-2 rounded-full duration-300 hover:bg-text/8"
             >
               <MdSkipPrevious />
             </button>
 
             {/* Play / Pause */}
             <button
-              className={`p-2 rounded-full font-semibold transition-all ${
-                isPlaying ? 'bg-black/10 text-black border-black' : 'bg-black text-white hover:bg-black/80'
+              className={`p-2 rounded-full font-semibold duration-300 ${
+                isPlaying ? 'bg-text/8 text-text border-text' : 'bg-text text-white hover:bg-text/80'
               }`}
               onClick={() => {
                 if (!isPlaying && currentStep >= totalFrames - 1) setCurrentStep(0);
@@ -206,20 +204,23 @@ export default function Timeline() {
             {/* Next */}
             <button
               onClick={() => setCurrentStep(Math.min(totalFrames - 1, currentStep + 1))}
-              className="p-2 rounded-full hover:bg-black/10"
+              className="p-2 rounded-full duration-300 hover:bg-text/8"
             >
               <MdSkipNext />
             </button>
 
             {/* Skip to End */}
-            <button onClick={() => setCurrentStep(totalFrames - 1)} className="p-2 rounded-full hover:bg-black/10">
+            <button
+              onClick={() => setCurrentStep(totalFrames - 1)}
+              className="p-2 rounded-full duration-300 hover:bg-text/8"
+            >
               <MdLastPage />
             </button>
           </div>
 
           {/* FPS */}
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-sm text-black/50">
+          <div className="w-1/3 flex items-center justify-end gap-4">
+            <div className="flex items-center gap-3 text-sm text-text/50">
               <label>Animation Speed:</label>
               <input
                 type="range"
@@ -227,7 +228,7 @@ export default function Timeline() {
                 max="60"
                 value={fps}
                 onChange={(e) => setFps(Number(e.target.value))}
-                className="w-24 h-1 bg-black/10 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                className="w-24 h-1 bg-text/8 rounded-lg appearance-none cursor-pointer accent-text"
               />
               <p className="w-11 text-right">{fps} fps</p>
             </div>

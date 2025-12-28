@@ -15,21 +15,19 @@ const hexToRgba = (hex: string, alpha: number) => {
 };
 
 const ACCENTS = {
-  blue: '#155dfc',
-  amber: '#f89c0b',
-  green: '#00a63e',
-  red: '#ef4444',
+  blue: '#5190c8ff',
+  amber: '#faa74a',
+  green: '#8aa656ff',
+  red: '#cf3a3a',
 };
 
 const GRAY = {
-  50: '#fafafa',
-  100: '#f7f7f7',
-  200: '#efefef',
-  300: '#d9d9d9',
-  400: '#bfbfbf',
-  500: '#8c8c8c',
-  700: '#4d4d4d',
-  900: '#111111',
+  200: '#dfdedd',
+  300: '#ccccca',
+  400: '#a6a5a4',
+  500: '#80807f',
+  700: '#5a5959',
+  900: '#333333',
 };
 
 const THEME = {
@@ -47,8 +45,8 @@ const THEME = {
     invalid: ACCENTS.red,
   },
   graph: {
-    edge: GRAY[400],
-    node: GRAY[500],
+    edge: GRAY[300],
+    node: GRAY[400],
   },
 };
 
@@ -64,8 +62,6 @@ const distToSegment = (p: Point, v: Point, w: Point) => {
 
 const drawPath = (ctx: CanvasRenderingContext2D, path: Point[], color: string, isDashed: boolean = false) => {
   if (path && path.length > 1) {
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 10;
     ctx.lineWidth = 4;
     ctx.strokeStyle = color;
     if (isDashed) ctx.setLineDash([10, 5]);
@@ -76,7 +72,6 @@ const drawPath = (ctx: CanvasRenderingContext2D, path: Point[], color: string, i
     ctx.stroke();
 
     ctx.setLineDash([]);
-    ctx.shadowBlur = 0;
   }
 };
 
@@ -208,7 +203,7 @@ export default function Canvas() {
       // Draw Delaunay Triangles
       if (step.triangles) {
         ctx.strokeStyle = THEME.graph.edge;
-        ctx.fillStyle = hexToRgba(GRAY[500], 0.03);
+        ctx.fillStyle = hexToRgba(GRAY[500], 0);
         ctx.lineWidth = 1;
 
         step.triangles.forEach((tri) => {
@@ -336,15 +331,12 @@ export default function Canvas() {
 
       // Draw Final/Current Path
       if (step.path && step.path.length > 1) {
-        ctx.shadowColor = hexToRgba(ACCENTS.blue, 0.5);
-        ctx.shadowBlur = 10;
         ctx.lineWidth = 4;
         ctx.strokeStyle = ACCENTS.blue;
         ctx.beginPath();
         ctx.moveTo(step.path[0].x, step.path[0].y);
         for (let i = 1; i < step.path.length; i++) ctx.lineTo(step.path[i].x, step.path[i].y);
         ctx.stroke();
-        ctx.shadowBlur = 0;
       }
     }
 
@@ -399,9 +391,9 @@ export default function Canvas() {
     };
 
     // Draw Start Point
-    drawSpecial(startPoint, 'S', ACCENTS.green);
+    drawSpecial(startPoint, 'S', '#333333');
     // Draw Goal Point
-    drawSpecial(goalPoint, 'G', ACCENTS.amber);
+    drawSpecial(goalPoint, 'G', '#333333');
   });
 
   const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
@@ -665,10 +657,10 @@ export default function Canvas() {
   };
 
   return (
-    <div ref={containerRef} className="pr-4 pb-4 relative w-full flex-1 disable-selection overflow-hidden">
+    <div ref={containerRef} className="pr-4 relative w-full flex-1 disable-selection">
       <canvas
         ref={canvasRef}
-        className="w-full h-full block touch-none border border-black/10 bg-black/5 rounded-xl"
+        className="w-full h-full block touch-none border border-text/10 bg-white rounded-xl shadow-md"
         style={{ cursor }}
         width={canvasSize.width}
         height={canvasSize.height}
@@ -681,7 +673,7 @@ export default function Canvas() {
 
       {canvasTooltip && mousePos && (
         <div
-          className="absolute pointer-events-none z-50 backdrop-blur-xs bg-black/70 text-white text-xs px-2 py-1.5 rounded shadow-lg transform translate-x-4 translate-y-4 whitespace-nowrap"
+          className="absolute pointer-events-none z-50 backdrop-blur-[0.25em] bg-text/60 text-bg text-xs px-2 py-1.5 rounded shadow-md transform translate-x-4 translate-y-4 whitespace-nowrap"
           style={{ left: mousePos.x, top: mousePos.y }}
         >
           {canvasTooltip}

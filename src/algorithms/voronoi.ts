@@ -38,9 +38,11 @@ export function computeVoronoi(
   // Sample boundary
   const { width, height } = canvasSize;
   const sampleDist = params.voronoiSampleDist || 40;
+  const margin = 10;
 
-  for (let x = 0; x <= width; x += sampleDist) vertices.push({ x, y: 0 }, { x, y: height });
-  for (let y = sampleDist; y < height; y += sampleDist) vertices.push({ x: 0, y }, { x: width, y });
+  for (let x = margin; x <= width - margin; x += sampleDist) vertices.push({ x, y: margin }, { x, y: height - margin });
+  for (let y = sampleDist; y < height - margin; y += sampleDist)
+    vertices.push({ x: margin, y }, { x: width - margin, y });
 
   addStep(phase1Id, 'Sampled canvas boundaries.', { activeState: 'neutral' });
 

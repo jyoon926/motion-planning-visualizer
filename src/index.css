@@ -21,12 +21,13 @@
   }
 }
 
-html {
-  font-size: 13px;
+@theme {
+  --color-bg: #f3f2f0;
+  --color-text: #333333;
 }
 
-input[type='range'] {
-  accent-color: #4b5563;
+html {
+  font-size: 13px;
 }
 
 .disable-selection {

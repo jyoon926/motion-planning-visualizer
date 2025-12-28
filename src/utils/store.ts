@@ -113,7 +113,7 @@ export const useStore = create<AppState>((set) => ({
   goalPoint: { x: 500, y: 200 },
 
   params: {
-    voronoiSampleDist: 80,
+    voronoiSampleDist: 40,
   },
 
   mode: 'edit',

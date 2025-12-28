@@ -103,9 +103,9 @@ function App() {
   ]);
 
   return (
-    <div className="w-full h-screen flex flex-col overflow-hidden">
+    <div className="w-full h-screen flex flex-col overflow-hidden bg-bg text-text">
       <Header />
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 flex overflow-hidden pb-4 relative">
         <SidePanel />
         <Canvas />
       </div>
